@@ -269,6 +269,76 @@ export function ContentCalendar() {
     return <div className="border-l border-t border-border/30 rounded-bl-3xl rounded-br-3xl overflow-hidden">{rows}</div>;
   };
 
+  const renderMobileList = () => {
+    const monthStart = startOfMonth(currentDate);
+    
+    // get all posts for the month, sort by date
+    const monthPosts = posts.filter(p => p.scheduled_for && isSameMonth(new Date(p.scheduled_for), monthStart)).sort((a, b) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime());
+    
+    // Group posts by date
+    const groupedPosts: Record<string, any[]> = {};
+    monthPosts.forEach(post => {
+      const dateStr = format(new Date(post.scheduled_for), "yyyy-MM-dd");
+      if (!groupedPosts[dateStr]) groupedPosts[dateStr] = [];
+      groupedPosts[dateStr].push(post);
+    });
+
+    return (
+      <div className="md:hidden flex flex-col p-4 space-y-6">
+        {Object.keys(groupedPosts).length === 0 ? (
+          <div className="text-center py-10 text-muted-foreground text-sm">No posts scheduled this month.</div>
+        ) : (
+          Object.keys(groupedPosts).map(dateStr => {
+            const dateObj = new Date(dateStr);
+            const isToday = isSameDay(dateObj, new Date());
+            
+            return (
+              <div key={dateStr} className="flex flex-col gap-3">
+                <div className="flex items-center gap-3">
+                  <div className={`text-xs font-bold w-8 h-8 flex items-center justify-center rounded-full ${isToday ? 'bg-indigo-500 text-white shadow-[0_0_10px_rgba(99,102,241,0.5)]' : 'bg-muted/50 text-foreground border border-border/50'}`}>
+                    {format(dateObj, "d")}
+                  </div>
+                  <span className={`text-sm font-semibold uppercase tracking-widest ${isToday ? 'text-indigo-400' : 'text-muted-foreground'}`}>{format(dateObj, "EEEE")}</span>
+                </div>
+                <div className="space-y-3 pl-11">
+                  {groupedPosts[dateStr].map(post => {
+                    const platformAsset = PLATFORMS.find(p => p.id === post.platform);
+                    return (
+                      <div 
+                        key={post.id} 
+                        onClick={() => setSelectedPost(post)}
+                        className={`flex flex-col gap-2 p-3.5 rounded-xl border border-border/50 transition-all cursor-pointer shadow-sm ${
+                          (post.status === 'posted' || post.status === 'published') ? 'bg-green-500/10 border-green-500/20' : 'bg-card/60 hover:border-indigo-500/50 hover:shadow-md'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          {platformAsset ? (
+                            <img src={platformAsset.logo} alt={post.platform} className="w-5 h-5 object-contain" />
+                          ) : (
+                            <div className="w-5 h-5 rounded-sm bg-muted/50" />
+                          )}
+                          <span className="font-bold text-sm truncate text-foreground/90">{post.title}</span>
+                          {(post.status === 'posted' || post.status === 'published') && <CheckCircle2 className="w-4 h-4 text-green-500 ml-auto" />}
+                        </div>
+                        {post.description && (
+                          <p className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed">{post.description}</p>
+                        )}
+                        <div className="flex justify-between items-center mt-1 pt-2 border-t border-border/30">
+                          <span className="text-[10px] uppercase tracking-widest text-muted-foreground/80 font-bold">{post.post_format || "post"}</span>
+                          <span className="text-[10px] text-muted-foreground/80 font-bold bg-background/50 px-2 py-0.5 rounded-md">{format(new Date(post.scheduled_for), "h:mm a")}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    );
+  };
+
   const selectedPlatform = selectedPost ? PLATFORMS.find(p => p.id === selectedPost.platform) : null;
 
   const getViewLink = (platform: string, id: string) => {
@@ -288,8 +358,11 @@ export function ContentCalendar() {
       <div className="bg-card/40 backdrop-blur-3xl rounded-3xl border border-border/50 shadow-2xl overflow-hidden h-full flex flex-col text-sm">
         {renderHeader()}
         <div className="flex-1 overflow-auto">
-          {renderDays()}
-          {renderCells()}
+          <div className="hidden md:block">
+            {renderDays()}
+            {renderCells()}
+          </div>
+          {renderMobileList()}
         </div>
       </div>
 
@@ -337,6 +410,13 @@ export function ContentCalendar() {
             <div className="space-y-2 bg-card/50 p-3 rounded-xl border border-border/50 max-h-[150px] overflow-y-auto">
               <p className="text-sm whitespace-pre-wrap">{selectedPost?.description || "No description provided."}</p>
             </div>
+
+            {selectedPost?.notes && (
+              <div className="space-y-1 bg-yellow-500/10 p-3 rounded-xl border border-yellow-500/20 max-h-[150px] overflow-y-auto">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-yellow-500/80">Internal Notes (Manual Instructions)</span>
+                <p className="text-xs text-yellow-200/90 whitespace-pre-wrap">{selectedPost.notes}</p>
+              </div>
+            )}
 
             <div className="flex flex-wrap gap-2 pt-3 border-t border-border/50">
               {errorMsg && <div className="w-full mb-1 px-3 py-2 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-md">{errorMsg}</div>}

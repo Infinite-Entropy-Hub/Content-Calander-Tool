@@ -13,7 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, UploadCloud, Sparkles, Link as LinkIcon, CalendarIcon } from "lucide-react";
+import { Plus, UploadCloud, Sparkles, Link as LinkIcon, CalendarIcon, Clock, CalendarClock } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { format } from "date-fns";
 import Image from "next/image";
@@ -39,6 +39,8 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn }: { onPostAdd
   const [description, setDescription] = useState("");
   const [scheduledDate, setScheduledDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [postTime, setPostTime] = useState(format(new Date(), "HH:mm"));
+  const [isScheduled, setIsScheduled] = useState(false);
+  const [notes, setNotes] = useState("");
   
   const [inputType, setInputType] = useState<"upload" | "link">("upload");
   const [files, setFiles] = useState<File[]>([]);
@@ -63,6 +65,8 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn }: { onPostAdd
       setPostFormat(editPost.post_format || "reel");
       
       if (editPost.thumbnail_url) setThumbnailUrl(editPost.thumbnail_url);
+      if (editPost.notes) setNotes(editPost.notes);
+      if (editPost.is_scheduled !== undefined) setIsScheduled(editPost.is_scheduled);
       
       if (editPost.scheduled_for) {
         const dt = new Date(editPost.scheduled_for);
@@ -145,6 +149,8 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn }: { onPostAdd
       const postData = {
         title: title || "Untitled Concept",
         description,
+        notes,
+        is_scheduled: isScheduled,
         platform,
         post_format: postFormat,
         status: publishStatus,
@@ -228,6 +234,8 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn }: { onPostAdd
     setSuccessMsg("");
     setScheduledDate(format(new Date(), "yyyy-MM-dd"));
     setPostTime(format(new Date(), "HH:mm"));
+    setIsScheduled(false);
+    setNotes("");
   };
 
   return (
@@ -358,27 +366,57 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn }: { onPostAdd
             </div>
             
             {/* Date & Time */}
-            <div className="space-y-2">
-              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Scheduled Date & Time</Label>
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+            <div className="space-y-3 bg-card/40 p-4 rounded-xl border border-border/50 shadow-inner">
+              <div className="flex items-center justify-between">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <CalendarClock className="w-3.5 h-3.5" /> Date & Time
+                </Label>
+                <label className="flex items-center gap-2 cursor-pointer bg-indigo-500/10 hover:bg-indigo-500/20 px-2 py-1 rounded-md border border-indigo-500/20 transition-colors">
+                  <input 
+                    type="checkbox" 
+                    checked={isScheduled} 
+                    onChange={(e) => setIsScheduled(e.target.checked)} 
+                    className="rounded bg-background accent-indigo-500 w-3.5 h-3.5" 
+                  />
+                  <span className="text-[10px] font-semibold text-indigo-400">Schedule this post</span>
+                </label>
+              </div>
+              
+              <div className={`flex flex-col sm:flex-row gap-3 transition-all duration-300 ${isScheduled ? 'opacity-100' : 'opacity-40 grayscale pointer-events-none'}`}>
+                <div className="relative flex-1 group">
+                  <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground group-focus-within:text-indigo-400 transition-colors">
+                    <CalendarIcon className="w-4 h-4" />
+                  </div>
                   <Input 
                     type="date" 
                     value={scheduledDate}
                     onChange={(e) => setScheduledDate(e.target.value)}
-                    className="bg-background/50 pl-9 border-border/50 h-9 text-xs"
+                    className="bg-background/80 pl-9 border-border/50 h-10 text-xs font-medium focus:ring-2 focus:ring-indigo-500/30 rounded-lg shadow-sm w-full"
                   />
                 </div>
-                <div className="relative flex-1">
+                <div className="relative flex-1 group">
+                  <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground group-focus-within:text-indigo-400 transition-colors">
+                    <Clock className="w-4 h-4" />
+                  </div>
                   <Input 
                     type="time" 
                     value={postTime}
                     onChange={(e) => setPostTime(e.target.value)}
-                    className="bg-background/50 border-border/50 h-9 text-xs"
+                    className="bg-background/80 pl-9 border-border/50 h-10 text-xs font-medium focus:ring-2 focus:ring-indigo-500/30 rounded-lg shadow-sm w-full"
                   />
                 </div>
               </div>
+            </div>
+
+            {/* Notes */}
+            <div className="space-y-2">
+              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Internal Notes (Instructions)</Label>
+              <Textarea 
+                className="bg-background/50 border-border/50 min-h-[60px] text-xs resize-none"
+                placeholder="E.g. Remember to tag @sponsor, add link in bio..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
             </div>
           </div>
 
@@ -493,11 +531,11 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn }: { onPostAdd
                   {isSubmitting ? "Updating..." : "Update Details"}
                 </Button>
               ) : (
-                <Button onClick={() => handleSave("scheduled")} disabled={isSubmitting} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl h-12 text-sm font-bold shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 transition-all">
-                  {isSubmitting ? "Saving..." : "Schedule Post"}
+                <Button onClick={() => handleSave(isScheduled ? "scheduled" : "draft")} disabled={isSubmitting} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl h-12 text-sm font-bold shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 transition-all">
+                  {isSubmitting ? "Saving..." : (isScheduled ? "Schedule Post" : "Save as Draft")}
                 </Button>
               )}
-              {!editPost && (
+              {!editPost && !isScheduled && (
                 <Button onClick={() => handleSave("published")} disabled={isSubmitting || platform !== 'instagram'} className="flex-1 bg-green-500 hover:bg-green-600 text-white rounded-xl h-12 text-sm font-bold shadow-lg shadow-green-500/20 hover:shadow-green-500/40 transition-all">
                   Publish Now
                 </Button>
