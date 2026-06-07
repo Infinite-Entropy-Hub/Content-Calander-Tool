@@ -50,6 +50,10 @@ export async function GET(req: Request) {
           const { publishToYouTube } = await import("@/lib/publishYouTube");
           const ytPostId = await publishToYouTube(post.id, post.user_id);
           results.push({ id: post.id, success: true, ytPostId });
+        } else if (post.platform === "x") {
+          const { publishToTwitter } = await import("@/lib/publishTwitter");
+          const xPostId = await publishToTwitter(post.id, post.user_id);
+          results.push({ id: post.id, success: true, xPostId });
         } else {
           // Future: handle other platforms
           results.push({ id: post.id, success: false, reason: "Platform not supported for auto-publish yet" });

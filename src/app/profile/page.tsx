@@ -40,6 +40,7 @@ export default function ProfilePage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isYTGuideOpen, setIsYTGuideOpen] = useState(false);
+  const [isXGuideOpen, setIsXGuideOpen] = useState(false);
   
   const router = useRouter();
 
@@ -164,6 +165,16 @@ export default function ProfilePage() {
                           size="sm" 
                           className="absolute top-2 right-2 h-6 w-6 p-0 rounded-full bg-background/50 hover:bg-red-500 hover:text-white"
                           onClick={(e) => { e.stopPropagation(); setIsYTGuideOpen(true); }}
+                        >
+                          <Info className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+                      {platform.id === 'x' && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="absolute top-2 right-2 h-6 w-6 p-0 rounded-full bg-background/50 hover:bg-zinc-800 hover:text-white"
+                          onClick={(e) => { e.stopPropagation(); setIsXGuideOpen(true); }}
                         >
                           <Info className="w-3.5 h-3.5" />
                         </Button>
@@ -343,6 +354,56 @@ export default function ProfilePage() {
             </div>
             <div className="flex justify-end pt-2 border-t border-border/50">
               <Button onClick={() => setIsYTGuideOpen(false)} className="bg-red-500 hover:bg-red-600 text-white">Got it</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* X (Twitter) Setup Guide Dialog */}
+        <Dialog open={isXGuideOpen} onOpenChange={setIsXGuideOpen}>
+          <DialogContent className="sm:max-w-2xl bg-background/95 backdrop-blur-3xl border border-border/50 max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+                <Info className="w-5 h-5 text-zinc-400" />
+                How to configure X (Twitter) API
+              </DialogTitle>
+              <DialogDescription>
+                Follow these steps to generate Developer credentials for automated Tweeting.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2 text-sm text-foreground/90">
+              <div className="space-y-2">
+                <h4 className="font-bold text-zinc-300">Step 1: Developer Portal</h4>
+                <ol className="list-decimal pl-5 space-y-1">
+                  <li>Go to <a href="https://developer.x.com/en/portal/dashboard" target="_blank" className="text-indigo-400 underline">developer.x.com</a> and sign up.</li>
+                  <li>Sign up for the <b>Free Tier</b> (allows 1,500 posts/month).</li>
+                  <li>Create a new Project and a new App.</li>
+                </ol>
+              </div>
+              
+              <div className="space-y-2">
+                <h4 className="font-bold text-zinc-300">Step 2: Change App Permissions</h4>
+                <ol className="list-decimal pl-5 space-y-1">
+                  <li>Inside your App settings, find <b>User authentication settings</b> and click Edit.</li>
+                  <li>Set the App permissions to <b>Read and write</b>. (This is required to post!).</li>
+                  <li>For Type of App, select <b>Web App, Automated App or Bot</b>.</li>
+                  <li>Enter dummy URLs for Callback and Website if required.</li>
+                </ol>
+              </div>
+
+              <div className="space-y-2">
+                <h4 className="font-bold text-zinc-300">Step 3: Generate the 4 Keys</h4>
+                <p className="text-xs text-muted-foreground">Because Twitter requires 4 keys, we store them directly in the environment variables instead of this UI dashboard.</p>
+                <ol className="list-decimal pl-5 space-y-1">
+                  <li>Go to the <b>Keys and Tokens</b> tab of your App.</li>
+                  <li>Click Regenerate on the <b>Consumer Keys</b>.</li>
+                  <li>Copy them into your `.env.local` file as <code className="bg-muted px-1 rounded text-xs text-indigo-300">TWITTER_API_KEY</code> and <code className="bg-muted px-1 rounded text-xs text-indigo-300">TWITTER_API_SECRET</code>.</li>
+                  <li>Click Generate on the <b>Authentication Tokens (Access Token and Secret)</b>.</li>
+                  <li>Copy them into your `.env.local` file as <code className="bg-muted px-1 rounded text-xs text-indigo-300">TWITTER_ACCESS_TOKEN</code> and <code className="bg-muted px-1 rounded text-xs text-indigo-300">TWITTER_ACCESS_SECRET</code>.</li>
+                </ol>
+              </div>
+            </div>
+            <div className="flex justify-end pt-2 border-t border-border/50">
+              <Button onClick={() => setIsXGuideOpen(false)} className="bg-zinc-800 hover:bg-zinc-900 text-white">Got it</Button>
             </div>
           </DialogContent>
         </Dialog>
