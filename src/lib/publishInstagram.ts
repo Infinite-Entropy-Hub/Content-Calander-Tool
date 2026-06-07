@@ -41,12 +41,21 @@ export async function publishToInstagram(postId: string, userId: string) {
 
   // 5. Meta API: Create Media Container
   const isVideo = post.media_url.match(/\.(mp4|mov|webm)$/i);
-  let containerUrl = `https://graph.facebook.com/v19.0/${igUserId}/media?access_token=${igToken}&caption=${encodeURIComponent(post.description || "")}`;
+  let containerUrl = `https://graph.facebook.com/v19.0/${igUserId}/media?access_token=${igToken}`;
   
-  if (isVideo) {
+  if (post.post_format === 'story') {
+    containerUrl += `&media_type=STORIES`;
+    if (isVideo) {
+      containerUrl += `&video_url=${encodeURIComponent(post.media_url)}`;
+    } else {
+      containerUrl += `&image_url=${encodeURIComponent(post.media_url)}`;
+    }
+  } else if (isVideo) {
     containerUrl += `&media_type=REELS&video_url=${encodeURIComponent(post.media_url)}`;
+    if (post.description) containerUrl += `&caption=${encodeURIComponent(post.description)}`;
   } else {
     containerUrl += `&image_url=${encodeURIComponent(post.media_url)}`;
+    if (post.description) containerUrl += `&caption=${encodeURIComponent(post.description)}`;
   }
 
   const createContainerRes = await fetch(containerUrl, { method: "POST" });
