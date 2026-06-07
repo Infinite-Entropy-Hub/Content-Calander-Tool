@@ -39,6 +39,7 @@ export default function ProfilePage() {
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const [isYTGuideOpen, setIsYTGuideOpen] = useState(false);
   
   const router = useRouter();
 
@@ -153,6 +154,16 @@ export default function ProfilePage() {
                           size="sm" 
                           className="absolute top-2 right-2 h-6 w-6 p-0 rounded-full bg-background/50 hover:bg-blue-500 hover:text-white"
                           onClick={(e) => { e.stopPropagation(); setIsGuideOpen(true); }}
+                        >
+                          <Info className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+                      {platform.id === 'youtube' && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="absolute top-2 right-2 h-6 w-6 p-0 rounded-full bg-background/50 hover:bg-red-500 hover:text-white"
+                          onClick={(e) => { e.stopPropagation(); setIsYTGuideOpen(true); }}
                         >
                           <Info className="w-3.5 h-3.5" />
                         </Button>
@@ -289,6 +300,49 @@ export default function ProfilePage() {
             </div>
             <div className="flex justify-end pt-2 border-t border-border/50">
               <Button onClick={() => setIsGuideOpen(false)} className="bg-indigo-500 hover:bg-indigo-600 text-white">Got it</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* YouTube Setup Guide Dialog */}
+        <Dialog open={isYTGuideOpen} onOpenChange={setIsYTGuideOpen}>
+          <DialogContent className="sm:max-w-2xl bg-background/95 backdrop-blur-3xl border border-border/50 max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+                <Info className="w-5 h-5 text-red-500" />
+                How to get your YouTube Refresh Token
+              </DialogTitle>
+              <DialogDescription>
+                Follow these steps to generate a permanent token for automated YouTube uploads.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2 text-sm text-foreground/90">
+              <div className="space-y-2">
+                <h4 className="font-bold text-red-400">Step 1: Google Cloud Project</h4>
+                <ol className="list-decimal pl-5 space-y-1">
+                  <li>Go to <a href="https://console.cloud.google.com/" target="_blank" className="text-indigo-400 underline">console.cloud.google.com</a> and create a new Project.</li>
+                  <li>In the search bar, type <b>YouTube Data API v3</b> and click Enable.</li>
+                  <li>Go to <b>Credentials</b> on the left menu.</li>
+                  <li>Click <b>Create Credentials</b> {">"} <b>OAuth client ID</b>. (Choose Web Application).</li>
+                  <li>Add <code className="bg-muted px-1 rounded text-xs">https://developers.google.com/oauthplayground</code> to Authorized redirect URIs.</li>
+                  <li>Save and copy your <b>Client ID</b> and <b>Client Secret</b> into your `.env.local` file as <code className="bg-muted px-1 rounded text-xs text-indigo-300">YOUTUBE_CLIENT_ID</code> and <code className="bg-muted px-1 rounded text-xs text-indigo-300">YOUTUBE_CLIENT_SECRET</code>.</li>
+                </ol>
+              </div>
+              
+              <div className="space-y-2">
+                <h4 className="font-bold text-red-400">Step 2: Get Refresh Token via Playground</h4>
+                <ol className="list-decimal pl-5 space-y-1">
+                  <li>Go to the <a href="https://developers.google.com/oauthplayground/" target="_blank" className="text-indigo-400 underline">Google OAuth 2.0 Playground</a>.</li>
+                  <li>Click the Gear Icon (top right) and check <b>Use your own OAuth credentials</b>. Paste your Client ID and Secret there.</li>
+                  <li>On the left, scroll down to <b>YouTube Data API v3</b> and select <code className="bg-muted px-1 rounded text-xs">https://www.googleapis.com/auth/youtube.upload</code>.</li>
+                  <li>Click <b>Authorize APIs</b> and log in with the Google Account you want to post to.</li>
+                  <li>Click <b>Exchange authorization code for tokens</b>.</li>
+                  <li>Copy the <b>Refresh Token</b> and paste it into this dashboard!</li>
+                </ol>
+              </div>
+            </div>
+            <div className="flex justify-end pt-2 border-t border-border/50">
+              <Button onClick={() => setIsYTGuideOpen(false)} className="bg-red-500 hover:bg-red-600 text-white">Got it</Button>
             </div>
           </DialogContent>
         </Dialog>

@@ -122,7 +122,10 @@ export function ContentCalendar() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       
-      const endpoint = selectedPost.platform === "facebook" ? "/api/publish/facebook" : "/api/publish/instagram";
+      let endpoint = "/api/publish/instagram";
+      if (selectedPost.platform === "facebook") endpoint = "/api/publish/facebook";
+      if (selectedPost.platform === "youtube") endpoint = "/api/publish/youtube";
+      if (selectedPost.platform === "x") endpoint = "/api/publish/twitter";
 
       const publishRes = await fetch(endpoint, {
         method: "POST",
@@ -330,7 +333,7 @@ export function ContentCalendar() {
                   <Download className="w-3.5 h-3.5 mr-1.5" /> Save
                 </Button>
               )}
-              {selectedPost?.status !== 'published' && selectedPost?.status !== 'posted' && (selectedPost?.platform === 'instagram' || selectedPost?.platform === 'facebook') && (
+              {selectedPost?.status !== 'published' && selectedPost?.status !== 'posted' && ['instagram', 'facebook', 'youtube', 'x'].includes(selectedPost?.platform) && (
                 <Button onClick={handlePublishNow} disabled={isPublishing} size="sm" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] h-8 min-w-[85px]">
                   <Send className="w-3.5 h-3.5 mr-1.5" /> {isPublishing ? "Wait..." : "Publish"}
                 </Button>
