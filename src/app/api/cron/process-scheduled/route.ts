@@ -86,8 +86,8 @@ export async function GET(req: Request) {
 
         if (post.auto_publish === false) {
           // HYBRID MANUAL WORKFLOW
-          const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-          const tgMsg = `🔔 <b>Time to Post! (Manual)</b>\n\n<b>Title:</b> ${post.title}\n<b>Platform:</b> ${post.platform}\n\n<a href="${appUrl}/dashboard">Open App to Download Media</a>`;
+          const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://postcal.vercel.app';
+          const tgMsg = `🔔 <b>Time to Post! (Manual)</b>\n\n<b>Title:</b> ${post.title}\n<b>Platform:</b> ${post.platform}\n<b>Format:</b> ${post.post_format || 'Post'}\n\n👉 <a href="${appUrl}/dashboard">Open App to Download Media & Post</a>`;
           
           const inline_keyboard = [
             [
@@ -102,9 +102,25 @@ export async function GET(req: Request) {
           await sendTelegram(tgMsg, { inline_keyboard });
 
           const emailHtml = `
-            <h2>Time to post: ${post.title}</h2>
-            <p>It's time to manually publish this post to <b>${post.platform}</b> so you can use native audio and stickers.</p>
-            <a href="${appUrl}/dashboard" style="display:inline-block;padding:12px 24px;background:#6366f1;color:white;text-decoration:none;border-radius:8px;">Open Content Calendar</a>
+            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+              <div style="background-color: #6366f1; padding: 24px; text-align: center;">
+                <h1 style="color: white; margin: 0; font-size: 24px;">🔔 Time to Publish!</h1>
+              </div>
+              <div style="padding: 24px; background-color: #ffffff;">
+                <h2 style="color: #1f2937; margin-top: 0;">${post.title}</h2>
+                <p style="color: #4b5563; font-size: 16px; line-height: 1.5;">It's time to manually publish your post. By doing it manually, you can use native stickers, trending audio, and interactive polls!</p>
+                
+                <div style="background-color: #f3f4f6; border-radius: 8px; padding: 16px; margin: 24px 0;">
+                  <p style="margin: 0 0 8px 0;"><strong>Platform:</strong> ${post.platform.toUpperCase()}</p>
+                  <p style="margin: 0 0 8px 0;"><strong>Format:</strong> ${post.post_format || 'Post'}</p>
+                  <p style="margin: 0;"><strong>Scheduled Time:</strong> ${new Date(post.scheduled_for).toLocaleString()}</p>
+                </div>
+
+                <div style="text-align: center; margin-top: 32px;">
+                  <a href="${appUrl}/dashboard" style="display: inline-block; padding: 14px 28px; background-color: #6366f1; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">Open Content Calendar Dashboard</a>
+                </div>
+              </div>
+            </div>
           `;
           await sendEmail(`Time to post: ${post.title}`, emailHtml);
 
@@ -128,7 +144,8 @@ export async function GET(req: Request) {
         const successMsg = `[AUTO-PUBLISHED] Successfully executed at ${new Date().toISOString()}`;
         await supabaseAdmin.from('posts').update({ status: 'published', error_log: successMsg }).eq('id', post.id);
         
-        await sendTelegram(`✅ <b>Auto-Publish Success</b>\n\n<b>Title:</b> ${post.title}\n<b>Platform:</b> ${post.platform}`);
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://postcal.vercel.app';
+        await sendTelegram(`✅ <b>Auto-Publish Success</b>\n\n<b>Title:</b> ${post.title}\n<b>Platform:</b> ${post.platform}\n\n👉 <a href="${appUrl}/dashboard">View in Dashboard</a>`);
         results.push({ id: post.id, status: 'success', platformId });
         
       } catch (err: any) {
@@ -145,12 +162,13 @@ export async function GET(req: Request) {
         const tgEnabled = profile?.telegram_enabled;
         
         if (tgEnabled && tgBotToken && tgChatId) {
+          const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://postcal.vercel.app';
           await fetch(`https://api.telegram.org/bot${tgBotToken}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
               chat_id: tgChatId, 
-              text: `❌ <b>Auto-Publish Failed</b>\n\n<b>Title:</b> ${post.title}\n<b>Platform:</b> ${post.platform}\n\n<b>Error:</b> ${errorMessage}`, 
+              text: `❌ <b>Auto-Publish Failed</b>\n\n<b>Title:</b> ${post.title}\n<b>Platform:</b> ${post.platform}\n\n<b>Error:</b> ${errorMessage}\n\n👉 <a href="${appUrl}/dashboard">Fix in Dashboard</a>`, 
               parse_mode: 'HTML' 
             })
           });
