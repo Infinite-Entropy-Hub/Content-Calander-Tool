@@ -6,7 +6,11 @@ import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { AppSidebar } from "@/components/SidebarLayout";
 import { SidebarProvider } from "@/components/ui/sidebar";
-import { User, Shield, Camera, Music, Sparkles, Heart, Zap, Star, Coffee, Ghost, Rocket, Crown, Gamepad, Compass, Anchor, Moon, Sun, Cloud, Umbrella, Flower, Leaf, Flame, Droplet, Snowflake } from "lucide-react";
+import { User, Shield, Camera, Music, Sparkles, Heart, Zap, Star, Coffee, Ghost, Rocket, Crown, Gamepad, Compass, Anchor, Moon, Sun, Cloud, Umbrella, Flower, Leaf, Flame, Droplet, Snowflake, Key } from "lucide-react";
+import { PLATFORMS } from "@/components/NewPostDialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const ICONS = [
   // Rick and Morty
@@ -30,6 +34,11 @@ export default function ProfilePage() {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
+  
+  const [selectedPlatform, setSelectedPlatform] = useState<any>(null);
+  const [apiKeyInput, setApiKeyInput] = useState("");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  
   const router = useRouter();
 
   useEffect(() => {
@@ -51,7 +60,7 @@ export default function ProfilePage() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    router.push("/auth");
+    router.push("/");
   };
 
   const saveIcon = async (iconId: string) => {
@@ -67,6 +76,24 @@ export default function ProfilePage() {
     }
   };
 
+  const saveApiKey = async () => {
+    if (!user || !selectedPlatform) return;
+    setIsSaving(true);
+    try {
+      const currentKeys = profile?.api_keys || {};
+      const newKeys = { ...currentKeys, [selectedPlatform.id]: apiKeyInput };
+      
+      await supabase.from("profiles").update({ api_keys: newKeys }).eq("id", user.id);
+      setProfile({ ...profile, api_keys: newKeys });
+      setIsDialogOpen(false);
+      setApiKeyInput("");
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   if (!user) return null;
 
   const activeIconData = ICONS.find(i => i.id === (profile?.icon || "rm_1")) || ICONS[0];
@@ -74,16 +101,16 @@ export default function ProfilePage() {
   return (
     <SidebarProvider>
       <div className="flex w-full h-screen overflow-hidden bg-background">
-        <AppSidebar activeTab="profile" setActiveTab={(tab) => router.push(tab === "calendar" || tab === "board" ? "/" : `/${tab}`)} />
+        <AppSidebar activeTab="profile" setActiveTab={(tab) => router.push("/dashboard")} />
         
         <main className="flex-1 overflow-auto relative p-8">
           <div className="max-w-4xl mx-auto space-y-8 relative z-10">
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">Your Identity</h1>
-              <p className="text-muted-foreground mt-2">Customize how you appear across CreatorOS</p>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">Your Identity & Settings</h1>
+              <p className="text-muted-foreground mt-2">Customize your avatar and connect your integrations</p>
             </div>
 
-            <div className="bg-card/40 backdrop-blur-xl border border-border/50 rounded-3xl p-8 flex items-center gap-8 shadow-2xl">
+            <div className="bg-card/40 backdrop-blur-xl border border-border/50 rounded-3xl p-8 flex items-center gap-8 shadow-xl">
               <div className="w-32 h-32 rounded-full border-4 border-indigo-500/50 flex items-center justify-center shadow-[0_0_30px_rgba(99,102,241,0.2)] overflow-hidden">
                 <img src={activeIconData.url} alt="Profile" className="w-full h-full object-cover" />
               </div>
@@ -94,7 +121,46 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            <div className="bg-card/40 backdrop-blur-xl border border-border/50 rounded-3xl p-8 shadow-2xl">
+            {/* Integrations Section */}
+            <div className="bg-card/40 backdrop-blur-xl border border-border/50 rounded-3xl p-8 shadow-xl">
+              <h3 className="text-xl font-bold mb-2 flex items-center gap-2">
+                <Zap className="w-5 h-5 text-purple-400" /> Platform Integrations
+              </h3>
+              <p className="text-sm text-muted-foreground mb-6">Connect your social accounts securely by providing your Access Tokens / API keys.</p>
+              
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {PLATFORMS.map((platform) => {
+                  const isConnected = !!profile?.api_keys?.[platform.id];
+                  
+                  return (
+                    <div 
+                      key={platform.id}
+                      onClick={() => {
+                        setSelectedPlatform(platform);
+                        setApiKeyInput(profile?.api_keys?.[platform.id] || "");
+                        setIsDialogOpen(true);
+                      }}
+                      className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col items-center justify-center gap-3 text-center ${
+                        isConnected 
+                          ? "bg-green-500/10 border-green-500/50 hover:bg-green-500/20" 
+                          : "bg-card/40 border-border/50 hover:bg-muted"
+                      }`}
+                    >
+                      <img src={platform.logo} alt={platform.name} className="w-8 h-8 object-contain" />
+                      <div>
+                        <p className="text-sm font-bold">{platform.name}</p>
+                        <p className={`text-[10px] font-semibold mt-1 uppercase tracking-wider ${isConnected ? "text-green-400" : "text-muted-foreground"}`}>
+                          {isConnected ? "Connected" : "Not Connected"}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Avatar Section */}
+            <div className="bg-card/40 backdrop-blur-xl border border-border/50 rounded-3xl p-8 shadow-xl">
               <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-indigo-400" /> Choose Your Avatar
               </h3>
@@ -118,8 +184,43 @@ export default function ProfilePage() {
                 })}
               </div>
             </div>
+            
           </div>
         </main>
+        
+        {/* API Key Dialog */}
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent className="sm:max-w-md bg-background/95 backdrop-blur-3xl border border-border/50">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Key className="w-4 h-4 text-indigo-400" />
+                Connect {selectedPlatform?.name}
+              </DialogTitle>
+              <DialogDescription>
+                Enter your secure Access Token or API Key for {selectedPlatform?.name}. This is stored securely in your Supabase database.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>API Key / Access Token</Label>
+                <Input 
+                  type="password" 
+                  placeholder="Paste your token here..." 
+                  value={apiKeyInput}
+                  onChange={(e) => setApiKeyInput(e.target.value)}
+                  className="bg-background/50 border-border/50"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+              <Button onClick={saveApiKey} disabled={isSaving} className="bg-indigo-500 hover:bg-indigo-600 text-white">
+                {isSaving ? "Saving..." : "Save Connection"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+        
       </div>
     </SidebarProvider>
   );

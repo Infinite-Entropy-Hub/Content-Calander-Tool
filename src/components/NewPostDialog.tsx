@@ -149,50 +149,51 @@ export function NewPostDialog({ onPostAdded }: { onPostAdded?: () => void }) {
       </Button>
       
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-[800px] border border-border/50 bg-background/95 backdrop-blur-3xl overflow-y-auto max-h-[90vh]">
-        <DialogHeader className="mb-4">
-          <DialogTitle className="text-3xl font-bold flex items-center gap-3">
-            <Sparkles className="w-6 h-6 text-indigo-400" />
+        <DialogContent className="sm:max-w-4xl border border-border/50 bg-background/95 backdrop-blur-3xl overflow-hidden">
+        <DialogHeader className="mb-2">
+          <DialogTitle className="text-xl font-bold flex items-center gap-3">
+            <Sparkles className="w-5 h-5 text-indigo-400" />
             Plan New Content
           </DialogTitle>
-          <DialogDescription className="text-muted-foreground text-base">
+          <DialogDescription className="text-muted-foreground text-sm">
             Select your platform, format, and schedule it.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-6 py-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-2 overflow-y-auto max-h-[75vh] px-1">
           
-          {/* Platforms */}
-          <div className="space-y-3">
-            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Destination Platform</Label>
-            <div className="flex flex-wrap gap-3">
-              {PLATFORMS.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => handlePlatformChange(p.id)}
-                  className={`h-14 px-4 rounded-xl flex items-center gap-2 border transition-all ${
-                    platform === p.id 
-                      ? "bg-indigo-500/10 border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.2)] scale-105" 
-                      : "bg-card border-border/50 hover:bg-muted opacity-60 hover:opacity-100"
-                  }`}
-                >
-                  <img src={p.logo} alt={p.name} className="w-6 h-6 object-contain" />
-                  <span className={`text-sm font-semibold ${platform === p.id ? "text-indigo-400" : "text-muted-foreground"}`}>{p.name}</span>
-                </button>
-              ))}
+          {/* LEFT COLUMN */}
+          <div className="space-y-5">
+            {/* Platforms */}
+            <div className="space-y-2">
+              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Destination Platform</Label>
+              <div className="flex flex-wrap gap-2">
+                {PLATFORMS.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => handlePlatformChange(p.id)}
+                    className={`h-10 px-3 rounded-lg flex items-center gap-2 border transition-all ${
+                      platform === p.id 
+                        ? "bg-indigo-500/10 border-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.2)]" 
+                        : "bg-card border-border/50 hover:bg-muted opacity-60 hover:opacity-100"
+                    }`}
+                  >
+                    <img src={p.logo} alt={p.name} className="w-4 h-4 object-contain" />
+                    <span className={`text-xs font-semibold ${platform === p.id ? "text-indigo-400" : "text-muted-foreground"}`}>{p.name}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          {/* Formats & Schedule */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-3">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Post Format</Label>
+            {/* Formats */}
+            <div className="space-y-2">
+              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Post Format</Label>
               <div className="flex flex-wrap gap-2">
                 {getFormatOptions().map(fmt => (
                   <button
                     key={fmt}
                     onClick={() => setPostFormat(fmt)}
-                    className={`px-3 py-1.5 rounded-md text-xs font-semibold border capitalize transition-all ${
+                    className={`px-3 py-1.5 rounded-md text-[11px] font-semibold border capitalize transition-all ${
                       postFormat === fmt 
                         ? "bg-primary text-primary-foreground border-primary" 
                         : "bg-card border-border/50 text-muted-foreground hover:bg-muted"
@@ -204,113 +205,116 @@ export function NewPostDialog({ onPostAdded }: { onPostAdded?: () => void }) {
               </div>
               
               {postFormat === "reel" && platform !== "youtube" && (
-                <label className="flex items-center gap-2 mt-2 cursor-pointer p-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
+                <label className="flex items-center gap-2 mt-2 cursor-pointer p-1.5 rounded-md bg-indigo-500/10 border border-indigo-500/20">
                   <input type="checkbox" checked={crossPostYT} onChange={(e) => setCrossPostYT(e.target.checked)} className="rounded border-indigo-500 text-indigo-500 focus:ring-indigo-500 bg-background" />
-                  <span className="text-xs font-medium text-indigo-300">Also upload to YouTube Shorts</span>
+                  <span className="text-[11px] font-medium text-indigo-300">Also upload to YouTube Shorts</span>
                 </label>
               )}
             </div>
             
-            <div className="space-y-3">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Scheduled Date</Label>
+            {/* Date */}
+            <div className="space-y-2">
+              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Scheduled Date</Label>
               <div className="relative">
-                <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
                 <Input 
                   type="date" 
                   value={scheduledDate}
                   onChange={(e) => setScheduledDate(e.target.value)}
-                  className="bg-background/50 pl-10 border-border/50 h-10"
+                  className="bg-background/50 pl-9 border-border/50 h-9 text-xs"
                 />
               </div>
             </div>
           </div>
 
-          {/* Media Upload */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Creative Asset</Label>
-              <div className="flex bg-muted/50 rounded-lg p-1 border border-border/50">
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => setInputType("upload")}
-                  className={`h-7 px-3 text-xs ${inputType === "upload" ? "bg-background shadow-sm" : ""}`}
-                >
-                  <UploadCloud className="w-3 h-3 mr-1.5" /> Upload
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => setInputType("link")}
-                  className={`h-7 px-3 text-xs ${inputType === "link" ? "bg-background shadow-sm" : ""}`}
-                >
-                  <LinkIcon className="w-3 h-3 mr-1.5" /> Paste Link
-                </Button>
-              </div>
-            </div>
-
-            {inputType === "upload" ? (
-              <div className="border border-dashed border-border/60 rounded-xl p-6 flex flex-col items-center justify-center bg-card/30 hover:bg-card/60 transition-colors relative cursor-pointer overflow-hidden group">
-                <input 
-                  type="file" 
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
-                  onChange={handleFileChange}
-                />
-                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                
-                <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                  <UploadCloud className="h-5 w-5 text-muted-foreground" />
+          {/* RIGHT COLUMN */}
+          <div className="space-y-5">
+            {/* Media Upload */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Creative Asset</Label>
+                <div className="flex bg-muted/50 rounded-md p-1 border border-border/50">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setInputType("upload")}
+                    className={`h-6 px-2 text-[10px] ${inputType === "upload" ? "bg-background shadow-sm" : ""}`}
+                  >
+                    <UploadCloud className="w-3 h-3 mr-1" /> Upload
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setInputType("link")}
+                    className={`h-6 px-2 text-[10px] ${inputType === "link" ? "bg-background shadow-sm" : ""}`}
+                  >
+                    <LinkIcon className="w-3 h-3 mr-1" /> Link
+                  </Button>
                 </div>
-                
-                {file ? (
-                  <div className="text-center z-20">
-                    <p className="text-sm font-semibold text-foreground">{file.name}</p>
-                    <p className="text-xs text-green-400 mt-1">Ready for Supabase Storage</p>
-                  </div>
-                ) : (
-                  <div className="text-center z-20">
-                    <p className="text-sm font-medium text-foreground">Drag & drop your masterpiece</p>
-                  </div>
-                )}
               </div>
-            ) : (
-              <Input 
-                placeholder="https://your-raw-video-link.mp4" 
-                className="bg-background/50 h-10"
-                value={rawLink}
-                onChange={(e) => setRawLink(e.target.value)}
-              />
-            )}
-          </div>
 
-          {/* Text Fields */}
-          <div className="grid gap-4">
-            <div className="grid gap-2">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Title / Internal Name</Label>
+              {inputType === "upload" ? (
+                <div className="border border-dashed border-border/60 rounded-xl p-4 flex flex-col items-center justify-center bg-card/30 hover:bg-card/60 transition-colors relative cursor-pointer overflow-hidden group min-h-[100px]">
+                  <input 
+                    type="file" 
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                    onChange={handleFileChange}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  
+                  {file ? (
+                    <div className="text-center z-20 flex flex-col items-center">
+                      <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center mb-2">
+                        <UploadCloud className="h-4 w-4 text-green-400" />
+                      </div>
+                      <p className="text-xs font-semibold text-foreground truncate max-w-[200px]">{file.name}</p>
+                      <p className="text-[10px] text-green-400 mt-1">Ready for Storage</p>
+                    </div>
+                  ) : (
+                    <div className="text-center z-20 flex flex-col items-center">
+                      <div className="w-8 h-8 rounded-full bg-muted/50 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                        <UploadCloud className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <p className="text-xs font-medium text-foreground">Drag & drop your masterpiece</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <Input 
+                  placeholder="https://your-raw-video-link.mp4" 
+                  className="bg-background/50 h-9 text-xs"
+                  value={rawLink}
+                  onChange={(e) => setRawLink(e.target.value)}
+                />
+              )}
+            </div>
+
+            {/* Text Fields */}
+            <div className="space-y-2">
+              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Title / Internal Name</Label>
               <Input 
-                className="bg-background/50 border-border/50 h-10"
+                className="bg-background/50 border-border/50 h-9 text-xs"
                 placeholder="e.g. 5 Tips for Creators"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
               />
             </div>
 
-            <div className="grid gap-2">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Caption & Description</Label>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Caption & Description</Label>
               <Textarea 
-                className="bg-background/50 border-border/50 min-h-[80px] resize-none"
+                className="bg-background/50 border-border/50 min-h-[80px] text-xs resize-none"
                 placeholder="Write an engaging caption..."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
               />
             </div>
           </div>
-
         </div>
         
-        <div className="pt-4 border-t border-border/50 flex justify-end gap-3 mt-2">
-          <Button variant="ghost" onClick={() => setOpen(false)} disabled={isSubmitting} className="hover:bg-muted/50">Cancel</Button>
-          <Button onClick={handleSave} disabled={isSubmitting} className="bg-white text-black hover:bg-white/90 px-8">
+        <div className="pt-3 border-t border-border/50 flex justify-end gap-2 mt-1">
+          <Button variant="ghost" size="sm" onClick={() => setOpen(false)} disabled={isSubmitting} className="hover:bg-muted/50 h-8 text-xs">Cancel</Button>
+          <Button onClick={handleSave} size="sm" disabled={isSubmitting} className="bg-white text-black hover:bg-white/90 px-6 h-8 text-xs font-medium">
             {isSubmitting ? "Uploading..." : "Save Content"}
           </Button>
         </div>
