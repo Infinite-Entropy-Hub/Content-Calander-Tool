@@ -352,44 +352,54 @@ export default function ProfilePage() {
             </DialogHeader>
             <div className="space-y-4 py-2 text-sm text-foreground/90">
               <div className="space-y-2">
-                <h4 className="font-bold text-blue-400">Step 1: Create the App</h4>
+                <h4 className="font-bold text-blue-400">Step 1: Create the App (Using Personal Profile)</h4>
+                <p className="pl-5 text-xs text-muted-foreground mb-1">Meta requires developer apps to be created by personal accounts, not business portfolios.</p>
                 <ol className="list-decimal pl-5 space-y-1">
+                  <li>Ensure you are logged into your Personal Facebook Profile (that has admin access to your Business).</li>
                   <li>Go to <a href="https://developers.facebook.com/" target="_blank" className="text-indigo-400 underline">developers.facebook.com</a> and click My Apps.</li>
-                  <li>Click Create App. Select "Other" {">"} "None" (Flexible App).</li>
-                  <li>Name it (e.g., ContentEngine Automation).</li>
+                  <li>Click Create App. Select "Other" {">"} "Business". Select your Business Portfolio from the dropdown.</li>
                   <li>On the App Dashboard, scroll down and click "Set Up" for <b>Instagram Graph API</b> and <b>Facebook Login for Business</b>.</li>
                 </ol>
               </div>
-              
+
               <div className="space-y-2">
                 <h4 className="font-bold text-blue-400">Step 2: Create a System User</h4>
                 <ol className="list-decimal pl-5 space-y-1">
-                  <li>Go to your Business Settings (<a href="https://business.facebook.com/settings" target="_blank" className="text-indigo-400 underline">business.facebook.com/settings</a>).</li>
-                  <li>On the left menu, under Users, click <b>System users</b>.</li>
+                  <li>Open a new tab and go to <a href="https://business.facebook.com/settings" target="_blank" className="text-indigo-400 underline">business.facebook.com/settings</a>.</li>
+                  <li>On the left sidebar, under Users, click <b>System users</b>.</li>
                   <li>Click the blue <b>+ Add</b> button in the top right.</li>
-                  <li>Name it (e.g., ContentEngine Robot) and set the Role to <b>Employee</b>.</li>
+                  <li>Name it (e.g., ContentEngine Robot) and select <b>Employee</b> (or Admin if allowed).</li>
                 </ol>
               </div>
 
               <div className="space-y-2">
                 <h4 className="font-bold text-blue-400">Step 3: Assign Assets</h4>
-                <p className="pl-5 text-xs text-muted-foreground mb-1">We must tell the robot what it is allowed to touch.</p>
+                <p className="pl-5 text-xs text-yellow-500 mb-1">If you chose "Employee", you MUST do this step to avoid the greyed-out generate button.</p>
                 <ol className="list-decimal pl-5 space-y-1">
                   <li>Click on your new System User, then click the giant <b>Assign assets</b> button in the middle.</li>
-                  <li>Click <b>Apps</b> on the left, check your App, and turn ON "Manage App".</li>
+                  <li>Click <b>Apps</b> on the left, check your App, and turn ON "Manage App (Full Control)".</li>
                   <li>Click <b>Instagram Accounts</b> on the left, check your Instagram, and turn ON "Content".</li>
-                  <li>Click <b>Pages</b> on the left, check your connected Facebook Page, and turn ON "Content".</li>
+                  <li>Click <b>Pages</b> on the left, check your Facebook Page, and turn ON "Content".</li>
                   <li>Click Save Changes.</li>
                 </ol>
               </div>
 
               <div className="space-y-2">
-                <h4 className="font-bold text-blue-400">Step 4: Generate the Token</h4>
+                <h4 className="font-bold text-blue-400">Step 4: Generate the Permanent Token</h4>
                 <ol className="list-decimal pl-5 space-y-1">
                   <li>While still on the System User page, click <b>Generate Token</b>.</li>
-                  <li>Select your App from the dropdown.</li>
-                  <li>Check these 4 boxes: <code className="bg-muted px-1 rounded text-xs text-indigo-300">instagram_basic</code>, <code className="bg-muted px-1 rounded text-xs text-indigo-300">instagram_content_publish</code>, <code className="bg-muted px-1 rounded text-xs text-indigo-300">pages_show_list</code>, and <code className="bg-muted px-1 rounded text-xs text-indigo-300">pages_read_engagement</code>.</li>
-                  <li>Generate the token, copy the long string of text, and paste it into this dashboard!</li>
+                  <li>Select your new App from the dropdown.</li>
+                  <li>Check these 6 exact boxes: 
+                    <div className="flex flex-wrap gap-1 mt-1 mb-1">
+                      <code className="bg-muted px-1 rounded text-xs text-indigo-300">instagram_basic</code>
+                      <code className="bg-muted px-1 rounded text-xs text-indigo-300">instagram_content_publish</code>
+                      <code className="bg-muted px-1 rounded text-xs text-indigo-300">pages_show_list</code>
+                      <code className="bg-muted px-1 rounded text-xs text-indigo-300">pages_read_engagement</code>
+                      <code className="bg-muted px-1 rounded text-xs text-indigo-300">pages_manage_posts</code>
+                      <code className="bg-muted px-1 rounded text-xs text-indigo-300">publish_video</code>
+                    </div>
+                  </li>
+                  <li>Generate the token, copy the giant string of text, and paste it into this dashboard! You are done!</li>
                 </ol>
               </div>
             </div>
