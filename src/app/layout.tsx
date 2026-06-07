@@ -14,6 +14,7 @@ export const metadata: Metadata = {
   description: "Automate and manage your Instagram and YouTube content",
 };
 
+import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 export default function RootLayout({
@@ -30,6 +31,7 @@ export default function RootLayout({
         <TooltipProvider>
           {children}
         </TooltipProvider>
+        <Toaster theme="dark" position="top-center" />
       </body>
     </html>
   );

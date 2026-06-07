@@ -16,6 +16,7 @@ import {
 import { ChevronLeft, ChevronRight, Download, Copy, Trash2, CheckCircle2, Send, ExternalLink, Edit3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NewPostDialog, PLATFORMS } from "./NewPostDialog";
+import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -57,19 +58,27 @@ export function ContentCalendar() {
   const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
   const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
 
-  const copyCaption = () => {
+  const copyCaption = async () => {
     if (!selectedPost?.description) return;
-    navigator.clipboard.writeText(selectedPost.description);
-    alert("Caption copied to clipboard!");
+    try {
+      await navigator.clipboard.writeText(selectedPost.description);
+      toast.success("Caption copied to clipboard!");
+    } catch (err) {
+      toast.error("Failed to copy caption");
+    }
   };
 
   const downloadAllMedia = () => {
-    if (!selectedPost?.media_urls) return;
+    if (!selectedPost?.media_urls || selectedPost.media_urls.length === 0) {
+      toast.error("No media files to download");
+      return;
+    }
     selectedPost.media_urls.forEach((url: string, index: number) => {
       setTimeout(() => {
         window.open(url, "_blank");
       }, index * 500);
     });
+    toast.success("Downloading media...");
   };
 
   const executeDelete = async () => {
@@ -93,28 +102,31 @@ export function ContentCalendar() {
       if (deletePostChecked) {
         await supabase.from('posts').delete().eq('id', selectedPost.id);
         setSelectedPost(null);
+        toast.success("Post deleted successfully");
       } else if (deleteMediaChecked && !deletePostChecked) {
-        // Just clear the media URLs from the post record
         await supabase.from('posts').update({ media_urls: [] }).eq('id', selectedPost.id);
         setSelectedPost({ ...selectedPost, media_urls: [] });
+        toast.success("Media cleared successfully");
       }
 
       fetchPosts();
       setDeleteDialogOpen(false);
     } catch (error) {
       console.error(error);
+      toast.error("Failed to delete");
     }
     setIsDeleting(false);
   };
 
   const handleMarkDone = async () => {
-    // We remove the native confirm per user request. We just mark it done.
     try {
       await supabase.from('posts').update({ status: 'posted' }).eq('id', selectedPost.id);
       setSelectedPost(null);
       fetchPosts();
+      toast.success("Post marked as posted!");
     } catch (error) {
       console.error(error);
+      toast.error("Failed to update status");
     }
   };
 
@@ -144,8 +156,10 @@ export function ContentCalendar() {
       
       fetchPosts();
       setSelectedPost({...selectedPost, status: 'published'});
+      toast.success(`Successfully published to ${selectedPost.platform}!`);
     } catch (e: any) {
       setErrorMsg(e.message);
+      toast.error(e.message);
     } finally {
       setIsPublishing(false);
     }
@@ -207,6 +221,18 @@ export function ContentCalendar() {
         
         const dayPosts = posts.filter(p => p.scheduled_for && isSameDay(new Date(p.scheduled_for), currentDay));
 
+        // Group posts by title + description + scheduled_for
+        const groupedMap = new Map();
+        dayPosts.forEach(post => {
+          const key = `${post.title}_${post.description}_${post.scheduled_for}`;
+          if (!groupedMap.has(key)) {
+            groupedMap.set(key, { ...post, grouped_platforms: [post.platform] });
+          } else {
+            groupedMap.get(key).grouped_platforms.push(post.platform);
+          }
+        });
+        const renderedPosts = Array.from(groupedMap.values());
+
         days.push(
           <div
             key={day.toString()}
@@ -237,8 +263,7 @@ export function ContentCalendar() {
             </div>
             
             <div className="space-y-1 mt-1">
-              {dayPosts.map((post) => {
-                const platformAsset = PLATFORMS.find(p => p.id === post.platform);
+              {renderedPosts.map((post) => {
                 return (
                   <div 
                     key={post.id} 
@@ -247,13 +272,14 @@ export function ContentCalendar() {
                       (post.status === 'posted' || post.status === 'published') ? 'bg-green-500/10 border-green-500/20 opacity-70' : 'bg-background/60 hover:border-indigo-500/50 hover:shadow-[0_0_10px_rgba(99,102,241,0.1)]'
                     }`}
                   >
-                    <div className="flex items-center gap-1.5">
-                      {platformAsset ? (
-                        <img src={platformAsset.logo} alt={post.platform} className="w-3.5 h-3.5 object-contain" />
-                      ) : (
-                        <div className="w-3.5 h-3.5 rounded-sm bg-muted/50" />
-                      )}
-                      <span className="truncate font-semibold text-foreground/90">{post.title}</span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {post.grouped_platforms.map((platId: string) => {
+                        const platformAsset = PLATFORMS.find(p => p.id === platId);
+                        return platformAsset ? (
+                          <img key={platId} src={platformAsset.logo} alt={platId} className="w-3.5 h-3.5 object-contain" />
+                        ) : null;
+                      })}
+                      <span className="truncate font-semibold text-foreground/90 flex-1">{post.title}</span>
                     </div>
                     {post.description && (
                       <p className="text-[9px] text-muted-foreground line-clamp-2 leading-tight px-0.5">{post.description}</p>
@@ -286,12 +312,18 @@ export function ContentCalendar() {
     // get all posts for the month, sort by date
     const monthPosts = posts.filter(p => p.scheduled_for && isSameMonth(new Date(p.scheduled_for), monthStart)).sort((a, b) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime());
     
-    // Group posts by date
+    // Group posts by date, then by title/description
     const groupedPosts: Record<string, any[]> = {};
     monthPosts.forEach(post => {
       const dateStr = format(new Date(post.scheduled_for), "yyyy-MM-dd");
       if (!groupedPosts[dateStr]) groupedPosts[dateStr] = [];
-      groupedPosts[dateStr].push(post);
+      
+      const existingGroup = groupedPosts[dateStr].find(p => p.title === post.title && p.description === post.description);
+      if (existingGroup) {
+        existingGroup.grouped_platforms.push(post.platform);
+      } else {
+        groupedPosts[dateStr].push({ ...post, grouped_platforms: [post.platform] });
+      }
     });
 
     return (
@@ -313,7 +345,6 @@ export function ContentCalendar() {
                 </div>
                 <div className="space-y-3 pl-11">
                   {groupedPosts[dateStr].map(post => {
-                    const platformAsset = PLATFORMS.find(p => p.id === post.platform);
                     return (
                       <div 
                         key={post.id} 
@@ -322,14 +353,15 @@ export function ContentCalendar() {
                           (post.status === 'posted' || post.status === 'published') ? 'bg-green-500/10 border-green-500/20' : 'bg-card/60 hover:border-indigo-500/50 hover:shadow-md'
                         }`}
                       >
-                        <div className="flex items-center gap-2.5">
-                          {platformAsset ? (
-                            <img src={platformAsset.logo} alt={post.platform} className="w-5 h-5 object-contain" />
-                          ) : (
-                            <div className="w-5 h-5 rounded-sm bg-muted/50" />
-                          )}
-                          <span className="font-bold text-sm truncate text-foreground/90">{post.title}</span>
-                          {(post.status === 'posted' || post.status === 'published') && <CheckCircle2 className="w-4 h-4 text-green-500 ml-auto" />}
+                        <div className="flex items-center gap-2.5 flex-wrap">
+                          {post.grouped_platforms.map((platId: string) => {
+                            const platformAsset = PLATFORMS.find(p => p.id === platId);
+                            return platformAsset ? (
+                              <img key={platId} src={platformAsset.logo} alt={platId} className="w-5 h-5 object-contain" />
+                            ) : null;
+                          })}
+                          <span className="font-bold text-sm truncate text-foreground/90 flex-1">{post.title}</span>
+                          {(post.status === 'posted' || post.status === 'published') && <CheckCircle2 className="w-4 h-4 text-green-500" />}
                         </div>
                         {post.description && (
                           <p className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed">{post.description}</p>

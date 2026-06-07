@@ -17,6 +17,7 @@ import { Plus, UploadCloud, Sparkles, Link as LinkIcon, CalendarIcon, Clock, Cal
 import { supabase } from "@/lib/supabase";
 import { format } from "date-fns";
 import Image from "next/image";
+import { toast } from "sonner";
 
 export const PLATFORMS = [
   { id: "instagram", name: "Instagram", logo: "https://res.cloudinary.com/drwys1ksu/image/upload/v1780806539/Instagram_Logo_y6kb4h.png" },
@@ -176,41 +177,61 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn, initialDate }
         newPostId = newPost.id;
       }
 
-      // Handle immediate publishing
-      if (publishStatus === "published" && platform === "instagram" && !editPost) {
-        const publishRes = await fetch("/api/publish/instagram", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ postId: newPostId, userId: session.user.id })
-        });
-        
-        const publishData = await publishRes.json();
-        if (!publishRes.ok) {
-           throw new Error(publishData.error || "Failed to publish to Instagram");
+      // Helper for triggering publish APIs
+      const triggerPublish = async (pId: string, plat: string) => {
+        const endpoints: Record<string, string> = {
+          instagram: "/api/publish/instagram",
+          facebook: "/api/publish/facebook",
+          youtube: "/api/publish/youtube",
+          x: "/api/publish/twitter"
+        };
+        if (endpoints[plat]) {
+          const res = await fetch(endpoints[plat], {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ postId: pId, userId: session.user.id })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || `Failed to publish to ${plat}`);
         }
-      }
+      };
 
-      // Handle Cross-Posting dynamically
+      // Handle Cross-Posting dynamically and Immediate Publishing
       if (!editPost) {
+        // Collect all IDs that need to be published if status is 'published'
+        const postsToPublish = [{ id: newPostId, platform }];
+
         if (crossPostYT) {
           const ytData = { ...postData, platform: "youtube", post_format: "shorts" };
-          supabase.from('posts').insert([ytData]).then();
+          const { data } = await supabase.from('posts').insert([ytData]).select().single();
+          if (data) postsToPublish.push({ id: data.id, platform: "youtube" });
         }
         if (crossPostFB) {
           const fbData = { ...postData, platform: "facebook", post_format: postFormat };
-          supabase.from('posts').insert([fbData]).then();
+          const { data } = await supabase.from('posts').insert([fbData]).select().single();
+          if (data) postsToPublish.push({ id: data.id, platform: "facebook" });
         }
         if (crossPostX) {
           const xData = { ...postData, platform: "x", post_format: "post" };
-          supabase.from('posts').insert([xData]).then();
+          const { data } = await supabase.from('posts').insert([xData]).select().single();
+          if (data) postsToPublish.push({ id: data.id, platform: "x" });
         }
         if (crossPostIG) {
           const igData = { ...postData, platform: "instagram", post_format: postFormat === "shorts" ? "reel" : "post" };
-          supabase.from('posts').insert([igData]).then();
+          const { data } = await supabase.from('posts').insert([igData]).select().single();
+          if (data) postsToPublish.push({ id: data.id, platform: "instagram" });
         }
+
+        if (publishStatus === "published") {
+          toast.info(`Publishing to ${postsToPublish.length} platform(s)... this might take a minute!`);
+          await Promise.all(postsToPublish.map(p => triggerPublish(p.id, p.platform)));
+        }
+      } else if (publishStatus === "published" && platform === "instagram") {
+         // Legacy fallback for editing a single instagram post and publishing immediately
+         await triggerPublish(newPostId, "instagram");
       }
 
-      setSuccessMsg(publishStatus === "published" ? "Published successfully!" : "Saved and scheduled successfully!");
+      toast.success(publishStatus === "published" ? "Published successfully!" : "Saved and scheduled successfully!");
       setTimeout(() => {
         setOpen(false);
         resetForm();
@@ -219,7 +240,7 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn, initialDate }
       
     } catch (error: any) {
       console.error("Save failed:", error);
-      setErrorMsg(`Error: ${error.message || error}`);
+      toast.error(`Error: ${error.message || error}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -462,7 +483,7 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn, initialDate }
                   <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                   
                   {files.length > 0 ? (
-                    <div className="text-center z-20 flex flex-col items-center">
+                    <div className="text-center z-20 flex flex-col items-center pointer-events-none">
                       <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center mb-2">
                         <UploadCloud className="h-4 w-4 text-green-400" />
                       </div>
@@ -472,7 +493,7 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn, initialDate }
                       <p className="text-[10px] text-green-400 mt-1">Ready for Storage</p>
                     </div>
                   ) : (
-                    <div className="text-center z-20 flex flex-col items-center">
+                    <div className="text-center z-20 flex flex-col items-center pointer-events-none">
                       <div className="w-8 h-8 rounded-full bg-muted/50 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
                         <UploadCloud className="h-4 w-4 text-muted-foreground" />
                       </div>
