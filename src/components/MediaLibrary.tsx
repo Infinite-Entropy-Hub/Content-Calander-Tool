@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { FileImage, FileVideo, FolderOpen, Loader2 } from "lucide-react";
+import { FileImage, FileVideo, FolderOpen, Loader2, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 type MediaFile = {
   name: string;
@@ -18,6 +19,8 @@ type MediaFile = {
 export function MediaLibrary() {
   const [files, setFiles] = useState<MediaFile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     const fetchMedia = async () => {
@@ -56,14 +59,63 @@ export function MediaLibrary() {
 
   return (
     <div className="flex flex-col h-full space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center">
-          <FolderOpen className="w-5 h-5 text-indigo-400" />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center">
+            <FolderOpen className="w-5 h-5 text-indigo-400" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">Media Library</h2>
+            <p className="text-sm text-muted-foreground">Manage all your uploaded assets</p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Media Library</h2>
-          <p className="text-sm text-muted-foreground">Manage all your uploaded assets</p>
-        </div>
+        
+        {files.length > 0 && (
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 cursor-pointer text-sm text-muted-foreground hover:text-foreground">
+              <input 
+                type="checkbox" 
+                className="rounded border-border/50 bg-background/50 accent-indigo-500 w-4 h-4"
+                checked={selectedFiles.length === files.length && files.length > 0}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedFiles(files.map(f => f.name));
+                  } else {
+                    setSelectedFiles([]);
+                  }
+                }}
+              />
+              Select All
+            </label>
+            
+            {selectedFiles.length > 0 && (
+              <Button 
+                variant="destructive" 
+                size="sm" 
+                onClick={async () => {
+                  if (!confirm(`Are you sure you want to delete ${selectedFiles.length} files?`)) return;
+                  setIsDeleting(true);
+                  const { data: { session } } = await supabase.auth.getSession();
+                  if (session) {
+                    const paths = selectedFiles.map(name => `${session.user.id}/${name}`);
+                    const { error } = await supabase.storage.from("media").remove(paths);
+                    if (!error) {
+                      setFiles(files.filter(f => !selectedFiles.includes(f.name)));
+                      setSelectedFiles([]);
+                    } else {
+                      alert("Error deleting files: " + error.message);
+                    }
+                  }
+                  setIsDeleting(false);
+                }}
+                disabled={isDeleting}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                {isDeleting ? "Deleting..." : `Delete (${selectedFiles.length})`}
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       {loading ? (
@@ -75,8 +127,31 @@ export function MediaLibrary() {
           {files.map((file) => {
             const isVideo = file.metadata?.mimetype?.includes("video") || file.name.endsWith(".mp4") || file.name.endsWith(".mov");
             return (
-              <div key={file.id} className="group relative rounded-xl border border-border/50 bg-card/40 overflow-hidden hover:border-indigo-500/50 transition-colors">
-                <div className="aspect-square bg-muted relative">
+              <div key={file.id} className={`group relative rounded-xl border transition-colors overflow-hidden ${selectedFiles.includes(file.name) ? 'border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.2)]' : 'border-border/50 bg-card/40 hover:border-indigo-500/50'}`}>
+                <div className="absolute top-2 left-2 z-20">
+                  <input 
+                    type="checkbox" 
+                    className="w-5 h-5 rounded border-border/50 bg-background/80 accent-indigo-500 cursor-pointer shadow-sm"
+                    checked={selectedFiles.includes(file.name)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedFiles([...selectedFiles, file.name]);
+                      } else {
+                        setSelectedFiles(selectedFiles.filter(name => name !== file.name));
+                      }
+                    }}
+                  />
+                </div>
+                <div 
+                  className="aspect-square bg-muted relative cursor-pointer"
+                  onClick={() => {
+                    if (selectedFiles.includes(file.name)) {
+                      setSelectedFiles(selectedFiles.filter(name => name !== file.name));
+                    } else {
+                      setSelectedFiles([...selectedFiles, file.name]);
+                    }
+                  }}
+                >
                   {isVideo ? (
                     <video src={file.url} className="w-full h-full object-cover" />
                   ) : (

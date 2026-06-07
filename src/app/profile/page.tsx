@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { AppSidebar } from "@/components/SidebarLayout";
 import { SidebarProvider } from "@/components/ui/sidebar";
-import { User, Shield, Camera, Music, Sparkles, Heart, Zap, Star, Coffee, Ghost, Rocket, Crown, Gamepad, Compass, Anchor, Moon, Sun, Cloud, Umbrella, Flower, Leaf, Flame, Droplet, Snowflake, Key } from "lucide-react";
+import { User, Shield, Camera, Music, Sparkles, Heart, Zap, Star, Coffee, Ghost, Rocket, Crown, Gamepad, Compass, Anchor, Moon, Sun, Cloud, Umbrella, Flower, Leaf, Flame, Droplet, Snowflake, Key, Info } from "lucide-react";
 import { PLATFORMS } from "@/components/NewPostDialog";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -38,6 +38,7 @@ export default function ProfilePage() {
   const [selectedPlatform, setSelectedPlatform] = useState<any>(null);
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
   
   const router = useRouter();
 
@@ -140,12 +141,22 @@ export default function ProfilePage() {
                         setApiKeyInput(profile?.api_keys?.[platform.id] || "");
                         setIsDialogOpen(true);
                       }}
-                      className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col items-center justify-center gap-3 text-center ${
+                      className={`relative p-4 rounded-2xl border transition-all cursor-pointer flex flex-col items-center justify-center gap-3 text-center ${
                         isConnected 
                           ? "bg-green-500/10 border-green-500/50 hover:bg-green-500/20" 
                           : "bg-card/40 border-border/50 hover:bg-muted"
                       }`}
                     >
+                      {['instagram', 'facebook'].includes(platform.id) && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="absolute top-2 right-2 h-6 w-6 p-0 rounded-full bg-background/50 hover:bg-blue-500 hover:text-white"
+                          onClick={(e) => { e.stopPropagation(); setIsGuideOpen(true); }}
+                        >
+                          <Info className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
                       <img src={platform.logo} alt={platform.name} className="w-8 h-8 object-contain" />
                       <div>
                         <p className="text-sm font-bold">{platform.name}</p>
@@ -217,6 +228,67 @@ export default function ProfilePage() {
               <Button onClick={saveApiKey} disabled={isSaving} className="bg-indigo-500 hover:bg-indigo-600 text-white">
                 {isSaving ? "Saving..." : "Save Connection"}
               </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Meta Setup Guide Dialog */}
+        <Dialog open={isGuideOpen} onOpenChange={setIsGuideOpen}>
+          <DialogContent className="sm:max-w-2xl bg-background/95 backdrop-blur-3xl border border-border/50 max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+                <Info className="w-5 h-5 text-blue-400" />
+                How to get your Meta Access Token
+              </DialogTitle>
+              <DialogDescription>
+                Follow these exact steps to connect your Instagram and Facebook Page.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2 text-sm text-foreground/90">
+              <div className="space-y-2">
+                <h4 className="font-bold text-blue-400">Step 1: Create the App</h4>
+                <ol className="list-decimal pl-5 space-y-1">
+                  <li>Go to <a href="https://developers.facebook.com/" target="_blank" className="text-indigo-400 underline">developers.facebook.com</a> and click My Apps.</li>
+                  <li>Click Create App. Select "Other" {">"} "None" (Flexible App).</li>
+                  <li>Name it (e.g., ContentEngine Automation).</li>
+                  <li>On the App Dashboard, scroll down and click "Set Up" for <b>Instagram Graph API</b> and <b>Facebook Login for Business</b>.</li>
+                </ol>
+              </div>
+              
+              <div className="space-y-2">
+                <h4 className="font-bold text-blue-400">Step 2: Create a System User</h4>
+                <ol className="list-decimal pl-5 space-y-1">
+                  <li>Go to your Business Settings (<a href="https://business.facebook.com/settings" target="_blank" className="text-indigo-400 underline">business.facebook.com/settings</a>).</li>
+                  <li>On the left menu, under Users, click <b>System users</b>.</li>
+                  <li>Click the blue <b>+ Add</b> button in the top right.</li>
+                  <li>Name it (e.g., ContentEngine Robot) and set the Role to <b>Employee</b>.</li>
+                </ol>
+              </div>
+
+              <div className="space-y-2">
+                <h4 className="font-bold text-blue-400">Step 3: Assign Assets</h4>
+                <p className="pl-5 text-xs text-muted-foreground mb-1">We must tell the robot what it is allowed to touch.</p>
+                <ol className="list-decimal pl-5 space-y-1">
+                  <li>Click on your new System User, then click the giant <b>Assign assets</b> button in the middle.</li>
+                  <li>Click <b>Apps</b> on the left, check your App, and turn ON "Manage App".</li>
+                  <li>Click <b>Instagram Accounts</b> on the left, check your Instagram, and turn ON "Content".</li>
+                  <li>Click <b>Pages</b> on the left, check your connected Facebook Page, and turn ON "Content".</li>
+                  <li>Click Save Changes.</li>
+                </ol>
+              </div>
+
+              <div className="space-y-2">
+                <h4 className="font-bold text-blue-400">Step 4: Generate the Token</h4>
+                <ol className="list-decimal pl-5 space-y-1">
+                  <li>While still on the System User page, click <b>Generate Token</b>.</li>
+                  <li>Select your App from the dropdown.</li>
+                  <li>Check these 4 boxes: <code className="bg-muted px-1 rounded text-xs text-indigo-300">instagram_basic</code>, <code className="bg-muted px-1 rounded text-xs text-indigo-300">instagram_content_publish</code>, <code className="bg-muted px-1 rounded text-xs text-indigo-300">pages_show_list</code>, and <code className="bg-muted px-1 rounded text-xs text-indigo-300">pages_read_engagement</code>.</li>
+                  <li>Generate the token, copy the long string of text, and paste it into this dashboard!</li>
+                </ol>
+              </div>
+            </div>
+            <div className="flex justify-end pt-2 border-t border-border/50">
+              <Button onClick={() => setIsGuideOpen(false)} className="bg-indigo-500 hover:bg-indigo-600 text-white">Got it</Button>
             </div>
           </DialogContent>
         </Dialog>

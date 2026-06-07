@@ -13,7 +13,7 @@ import {
   startOfWeek,
   endOfWeek,
 } from "date-fns";
-import { ChevronLeft, ChevronRight, Download, Copy, Trash2, CheckCircle2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Copy, Trash2, CheckCircle2, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NewPostDialog, PLATFORMS } from "./NewPostDialog";
 import { supabase } from "@/lib/supabase";
@@ -23,6 +23,8 @@ export function ContentCalendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [posts, setPosts] = useState<any[]>([]);
   const [selectedPost, setSelectedPost] = useState<any>(null);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const fetchPosts = async () => {
     try {
@@ -63,6 +65,16 @@ export function ContentCalendar() {
   const handleDelete = async () => {
     if (!confirm("Are you sure you want to delete this post?")) return;
     try {
+      const deleteMedia = confirm("Do you also want to permanently delete the attached media file from storage?");
+      
+      if (deleteMedia && selectedPost?.media_url && selectedPost.media_url.includes('supabase.co')) {
+        const parts = selectedPost.media_url.split('/media/');
+        if (parts.length === 2) {
+          const filePath = parts[1];
+          await supabase.storage.from('media').remove([filePath]);
+        }
+      }
+
       await supabase.from('posts').delete().eq('id', selectedPost.id);
       setSelectedPost(null);
       fetchPosts();
@@ -92,6 +104,36 @@ export function ContentCalendar() {
       fetchPosts();
     } catch (error) {
       console.error(error);
+    }
+  };
+
+  const handlePublishNow = async () => {
+    if (!selectedPost) return;
+    try {
+      setIsPublishing(true);
+      setErrorMsg("");
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      
+      const endpoint = selectedPost.platform === "facebook" ? "/api/publish/facebook" : "/api/publish/instagram";
+
+      const publishRes = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postId: selectedPost.id, userId: session.user.id })
+      });
+      
+      const publishData = await publishRes.json();
+      if (!publishRes.ok) {
+         throw new Error(publishData.error || `Failed to publish to ${selectedPost.platform}`);
+      }
+      
+      fetchPosts();
+      setSelectedPost({...selectedPost, status: 'published'});
+    } catch (e: any) {
+      setErrorMsg(e.message);
+    } finally {
+      setIsPublishing(false);
     }
   };
 
@@ -177,7 +219,7 @@ export function ContentCalendar() {
                     key={post.id} 
                     onClick={() => setSelectedPost(post)}
                     className={`flex flex-col gap-1 p-1.5 rounded-md border border-border/50 text-[10px] transition-all cursor-pointer ${
-                      post.status === 'posted' ? 'bg-green-500/10 border-green-500/20 opacity-70' : 'bg-background/60 hover:border-indigo-500/50 hover:shadow-[0_0_10px_rgba(99,102,241,0.1)]'
+                      (post.status === 'posted' || post.status === 'published') ? 'bg-green-500/10 border-green-500/20 opacity-70' : 'bg-background/60 hover:border-indigo-500/50 hover:shadow-[0_0_10px_rgba(99,102,241,0.1)]'
                     }`}
                   >
                     <div className="flex items-center gap-1.5">
@@ -193,7 +235,7 @@ export function ContentCalendar() {
                     )}
                     <div className="flex justify-between items-center mt-0.5 px-0.5">
                       <span className="text-[8px] uppercase tracking-wider text-muted-foreground/70">{post.post_format || "post"}</span>
-                      {post.status === 'posted' && <CheckCircle2 className="w-3 h-3 text-green-500" />}
+                      {(post.status === 'posted' || post.status === 'published') && <CheckCircle2 className="w-3 h-3 text-green-500" />}
                     </div>
                   </div>
                 );
@@ -242,7 +284,11 @@ export function ContentCalendar() {
           <div className="space-y-4 py-2">
             {selectedPost?.media_url ? (
               <div className="w-full max-h-[50vh] bg-black/50 rounded-xl overflow-hidden flex items-center justify-center relative border border-border/50">
-                <video src={selectedPost.media_url} controls className="max-w-full max-h-[50vh] object-contain" />
+                {selectedPost.media_url.match(/\.(mp4|mov|webm)$/i) ? (
+                  <video src={selectedPost.media_url} controls className="max-w-full max-h-[50vh] object-contain" />
+                ) : (
+                  <img src={selectedPost.media_url} alt={selectedPost.title} className="max-w-full max-h-[50vh] object-contain" />
+                )}
               </div>
             ) : (
               <div className="w-full h-24 bg-muted/30 rounded-xl flex items-center justify-center border border-border/50 border-dashed text-muted-foreground text-xs">
@@ -254,28 +300,30 @@ export function ContentCalendar() {
               <p className="text-sm whitespace-pre-wrap">{selectedPost?.description || "No description provided."}</p>
             </div>
 
-            <div className="flex flex-col gap-2 pt-2 border-t border-border/50">
-              <div className="flex gap-2">
-                <Button onClick={copyCaption} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white h-10">
-                  <Copy className="w-4 h-4 mr-2" /> Copy Text
-                </Button>
-                {selectedPost?.media_url && (
-                  <Button onClick={downloadMedia} variant="outline" className="flex-1 bg-card hover:bg-muted h-10">
-                    <Download className="w-4 h-4 mr-2" /> Download
-                  </Button>
-                )}
-              </div>
+            <div className="flex flex-wrap gap-2 pt-3 border-t border-border/50">
+              {errorMsg && <div className="w-full mb-1 px-3 py-2 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-md">{errorMsg}</div>}
               
-              <div className="flex gap-2">
-                <Button onClick={handleDelete} variant="destructive" className="flex-1 h-10 opacity-90 hover:opacity-100">
-                  <Trash2 className="w-4 h-4 mr-2" /> Delete
+              <Button onClick={copyCaption} variant="secondary" size="sm" className="flex-1 text-[11px] h-8 min-w-[70px]">
+                <Copy className="w-3.5 h-3.5 mr-1.5" /> Copy
+              </Button>
+              {selectedPost?.media_url && (
+                <Button onClick={downloadMedia} variant="secondary" size="sm" className="flex-1 text-[11px] h-8 min-w-[70px]">
+                  <Download className="w-3.5 h-3.5 mr-1.5" /> Save
                 </Button>
-                {selectedPost?.status !== 'posted' && (
-                  <Button onClick={handleMarkDone} className="flex-1 bg-green-600 hover:bg-green-700 text-white h-10">
-                    <CheckCircle2 className="w-4 h-4 mr-2" /> Mark Done
-                  </Button>
-                )}
-              </div>
+              )}
+              {selectedPost?.status !== 'published' && selectedPost?.status !== 'posted' && (selectedPost?.platform === 'instagram' || selectedPost?.platform === 'facebook') && (
+                <Button onClick={handlePublishNow} disabled={isPublishing} size="sm" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] h-8 min-w-[85px]">
+                  <Send className="w-3.5 h-3.5 mr-1.5" /> {isPublishing ? "Wait..." : "Publish"}
+                </Button>
+              )}
+              {selectedPost?.status !== 'published' && selectedPost?.status !== 'posted' && (
+                <Button onClick={handleMarkDone} size="sm" className="flex-1 bg-green-600 hover:bg-green-700 text-white text-[11px] h-8 min-w-[75px]">
+                  <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Done
+                </Button>
+              )}
+              <Button onClick={handleDelete} variant="destructive" size="sm" className="flex-1 text-[11px] h-8 min-w-[75px]">
+                <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete
+              </Button>
             </div>
           </div>
         </DialogContent>
