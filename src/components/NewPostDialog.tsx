@@ -101,7 +101,7 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn }: { onPostAdd
     }
   };
 
-  const handleSave = async (publishStatus: "scheduled" | "published" = "scheduled") => {
+  const handleSave = async (publishStatus: "scheduled" | "published" | "draft" = "scheduled") => {
     try {
       setErrorMsg("");
       setSuccessMsg("");
