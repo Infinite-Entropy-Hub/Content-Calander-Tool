@@ -129,11 +129,23 @@ export async function publishToInstagram(postId: string, userId: string) {
 
   if (publishData.error) throw new Error(`Meta API Publish Error: ${publishData.error.message}`);
 
-  // 8. Update DB
+  // 8. Fetch the actual permalink_url
+  let finalIdOrUrl = publishData.id;
+  try {
+    const mediaRes = await fetch(`https://graph.facebook.com/v19.0/${publishData.id}?fields=permalink_url&access_token=${igToken}`);
+    const mediaData = await mediaRes.json();
+    if (mediaData.permalink_url) {
+      finalIdOrUrl = mediaData.permalink_url;
+    }
+  } catch (e) {
+    console.error("Could not fetch Instagram permalink", e);
+  }
+
+  // 9. Update DB
   await supabase
     .from("posts")
-    .update({ status: "published", platform_post_id: publishData.id })
+    .update({ status: "published", platform_post_id: finalIdOrUrl })
     .eq("id", postId);
 
-  return publishData.id;
+  return finalIdOrUrl;
 }

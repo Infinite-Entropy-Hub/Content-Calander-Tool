@@ -354,6 +354,7 @@ export function ContentCalendar() {
 
   const getViewLink = (platform: string, id: string) => {
     if (!id) return null;
+    if (id.startsWith('http')) return id;
     if (platform === "youtube") return `https://youtube.com/watch?v=${id}`;
     if (platform === "x") return `https://x.com/i/web/status/${id}`;
     if (platform === "instagram") return `https://instagram.com/p/${id}`;
