@@ -128,7 +128,7 @@ export async function publishToInstagram(postId: string, userId: string) {
   // 8. Update DB
   await supabase
     .from("posts")
-    .update({ status: "published" })
+    .update({ status: "published", platform_post_id: publishData.id })
     .eq("id", postId);
 
   return publishData.id;

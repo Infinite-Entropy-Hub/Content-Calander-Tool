@@ -28,7 +28,9 @@ export const PLATFORMS = [
   { id: "reddit", name: "Reddit", logo: "https://res.cloudinary.com/drwys1ksu/image/upload/v1780806539/Reddit_aeiwse.png" },
 ];
 
-export function NewPostDialog({ onPostAdded }: { onPostAdded?: () => void }) {
+import { useEffect } from "react";
+
+export function NewPostDialog({ onPostAdded, editPost, triggerBtn }: { onPostAdded?: () => void; editPost?: any; triggerBtn?: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const [platform, setPlatform] = useState<string>("instagram");
   const [postFormat, setPostFormat] = useState<string>("reel");
@@ -44,9 +46,33 @@ export function NewPostDialog({ onPostAdded }: { onPostAdded?: () => void }) {
   
   const [crossPostYT, setCrossPostYT] = useState(false);
   const [crossPostFB, setCrossPostFB] = useState(false);
+  const [crossPostX, setCrossPostX] = useState(false);
+  const [crossPostIG, setCrossPostIG] = useState(false);
+  
+  const [thumbnailUrl, setThumbnailUrl] = useState("");
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+
+  useEffect(() => {
+    if (open && editPost) {
+      setTitle(editPost.title || "");
+      setDescription(editPost.description || "");
+      setPlatform(editPost.platform || "instagram");
+      setPostFormat(editPost.post_format || "reel");
+      
+      if (editPost.thumbnail_url) setThumbnailUrl(editPost.thumbnail_url);
+      
+      if (editPost.scheduled_for) {
+        const dt = new Date(editPost.scheduled_for);
+        setScheduledDate(format(dt, "yyyy-MM-dd"));
+        setPostTime(format(dt, "HH:mm"));
+      }
+    } else if (open && !editPost) {
+      resetForm();
+    }
+  }, [open, editPost]);
 
   // Dynamic Formats based on platform
   const getFormatOptions = () => {
@@ -108,6 +134,8 @@ export function NewPostDialog({ onPostAdded }: { onPostAdded?: () => void }) {
         finalMediaUrls = await Promise.all(uploadPromises);
       } else if (rawLink) {
         finalMediaUrls = [rawLink];
+      } else if (editPost && editPost.media_urls) {
+        finalMediaUrls = editPost.media_urls; // Keep existing media if no new files uploaded
       }
 
       // Main Post Insert
@@ -121,19 +149,28 @@ export function NewPostDialog({ onPostAdded }: { onPostAdded?: () => void }) {
         post_format: postFormat,
         status: publishStatus,
         media_urls: finalMediaUrls,
+        thumbnail_url: thumbnailUrl || null,
         user_id: session.user.id,
         scheduled_for: scheduledFor,
       };
 
-      const { data: newPost, error: dbError } = await supabase.from('posts').insert([postData]).select().single();
-      if (dbError) throw dbError;
+      let newPostId = "";
+      if (editPost) {
+        const { error: updateError } = await supabase.from('posts').update(postData).eq('id', editPost.id);
+        if (updateError) throw updateError;
+        newPostId = editPost.id;
+      } else {
+        const { data: newPost, error: dbError } = await supabase.from('posts').insert([postData]).select().single();
+        if (dbError) throw dbError;
+        newPostId = newPost.id;
+      }
 
       // Handle immediate publishing
-      if (publishStatus === "published" && platform === "instagram") {
+      if (publishStatus === "published" && platform === "instagram" && !editPost) {
         const publishRes = await fetch("/api/publish/instagram", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ postId: newPost.id, userId: session.user.id })
+          body: JSON.stringify({ postId: newPostId, userId: session.user.id })
         });
         
         const publishData = await publishRes.json();
@@ -142,18 +179,24 @@ export function NewPostDialog({ onPostAdded }: { onPostAdded?: () => void }) {
         }
       }
 
-      // Handle Cross-Posting to YT Shorts
-      if (crossPostYT && platform !== "youtube" && postFormat === "reel") {
-        const ytData = { ...postData, platform: "youtube", post_format: "shorts" };
-        const { error: ytError } = await supabase.from('posts').insert([ytData]);
-        if (ytError) console.error("Cross-post error:", ytError);
-      }
-
-      // Handle Cross-Posting to Facebook
-      if (crossPostFB && platform === "instagram") {
-        const fbData = { ...postData, platform: "facebook" };
-        const { error: fbError } = await supabase.from('posts').insert([fbData]);
-        if (fbError) console.error("Cross-post FB error:", fbError);
+      // Handle Cross-Posting dynamically
+      if (!editPost) {
+        if (crossPostYT) {
+          const ytData = { ...postData, platform: "youtube", post_format: "shorts" };
+          supabase.from('posts').insert([ytData]).then();
+        }
+        if (crossPostFB) {
+          const fbData = { ...postData, platform: "facebook", post_format: postFormat };
+          supabase.from('posts').insert([fbData]).then();
+        }
+        if (crossPostX) {
+          const xData = { ...postData, platform: "x", post_format: "post" };
+          supabase.from('posts').insert([xData]).then();
+        }
+        if (crossPostIG) {
+          const igData = { ...postData, platform: "instagram", post_format: postFormat === "shorts" ? "reel" : "post" };
+          supabase.from('posts').insert([igData]).then();
+        }
       }
 
       setSuccessMsg(publishStatus === "published" ? "Published successfully!" : "Saved and scheduled successfully!");
@@ -176,8 +219,11 @@ export function NewPostDialog({ onPostAdded }: { onPostAdded?: () => void }) {
     setDescription("");
     setFiles([]);
     setRawLink("");
+    setThumbnailUrl("");
     setCrossPostYT(false);
     setCrossPostFB(false);
+    setCrossPostX(false);
+    setCrossPostIG(false);
     setErrorMsg("");
     setSuccessMsg("");
     setScheduledDate(format(new Date(), "yyyy-MM-dd"));
@@ -186,19 +232,25 @@ export function NewPostDialog({ onPostAdded }: { onPostAdded?: () => void }) {
 
   return (
     <>
-      <Button 
-        onClick={() => setOpen(true)}
-        className="bg-white text-black hover:bg-white/90 shadow-[0_0_20px_rgba(255,255,255,0.3)] transition-all duration-300 rounded-full px-6"
-      >
-        <Plus className="h-4 w-4 mr-2" /> Create Post
-      </Button>
+      {triggerBtn ? (
+        <div onClick={() => setOpen(true)}>
+          {triggerBtn}
+        </div>
+      ) : (
+        <Button 
+          onClick={() => setOpen(true)}
+          className="bg-white text-black hover:bg-white/90 shadow-[0_0_20px_rgba(255,255,255,0.3)] transition-all duration-300 rounded-full px-6"
+        >
+          <Plus className="h-4 w-4 mr-2" /> Create Post
+        </Button>
+      )}
       
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-4xl border border-border/50 bg-background/95 backdrop-blur-3xl overflow-hidden">
         <DialogHeader className="mb-2">
           <DialogTitle className="text-xl font-bold flex items-center gap-3">
             <Sparkles className="w-5 h-5 text-indigo-400" />
-            Plan New Content
+            {editPost ? "Edit Content" : "Plan New Content"}
           </DialogTitle>
           <DialogDescription className="text-muted-foreground text-sm">
             Select your platform, format, and schedule it.
@@ -248,20 +300,61 @@ export function NewPostDialog({ onPostAdded }: { onPostAdded?: () => void }) {
                   </button>
                 ))}
               </div>
-              
-              {postFormat === "reel" && platform !== "youtube" && (
-                <label className="flex items-center gap-2 mt-2 cursor-pointer p-1.5 rounded-md bg-indigo-500/10 border border-indigo-500/20">
-                  <input type="checkbox" checked={crossPostYT} onChange={(e) => setCrossPostYT(e.target.checked)} className="rounded border-indigo-500 text-indigo-500 focus:ring-indigo-500 bg-background" />
-                  <span className="text-[11px] font-medium text-indigo-300">Also upload to YouTube Shorts</span>
-                </label>
-              )}
+              <div className="space-y-2 mt-2">
+                {/* IG Cross-posts */}
+                {platform === "instagram" && (
+                  <>
+                    {postFormat === "reel" && (
+                      <label className="flex items-center gap-2 cursor-pointer p-1.5 rounded-md bg-red-500/10 border border-red-500/20">
+                        <input type="checkbox" checked={crossPostYT} onChange={(e) => setCrossPostYT(e.target.checked)} className="rounded bg-background" />
+                        <span className="text-[11px] font-medium text-red-300">Also upload to YouTube Shorts</span>
+                      </label>
+                    )}
+                    <label className="flex items-center gap-2 cursor-pointer p-1.5 rounded-md bg-blue-500/10 border border-blue-500/20">
+                      <input type="checkbox" checked={crossPostFB} onChange={(e) => setCrossPostFB(e.target.checked)} className="rounded bg-background" />
+                      <span className="text-[11px] font-medium text-blue-300">Also cross-post to Facebook Page</span>
+                    </label>
+                    {postFormat === "post" && (
+                      <label className="flex items-center gap-2 cursor-pointer p-1.5 rounded-md bg-zinc-500/10 border border-zinc-500/20">
+                        <input type="checkbox" checked={crossPostX} onChange={(e) => setCrossPostX(e.target.checked)} className="rounded bg-background" />
+                        <span className="text-[11px] font-medium text-zinc-300">Also post on X (Twitter)</span>
+                      </label>
+                    )}
+                  </>
+                )}
 
-              {platform === "instagram" && (
-                <label className="flex items-center gap-2 mt-2 cursor-pointer p-1.5 rounded-md bg-blue-500/10 border border-blue-500/20">
-                  <input type="checkbox" checked={crossPostFB} onChange={(e) => setCrossPostFB(e.target.checked)} className="rounded border-blue-500 text-blue-500 focus:ring-blue-500 bg-background" />
-                  <span className="text-[11px] font-medium text-blue-300">Also cross-post to Facebook Page</span>
-                </label>
-              )}
+                {/* YT Cross-posts */}
+                {platform === "youtube" && postFormat === "shorts" && (
+                  <>
+                    <label className="flex items-center gap-2 cursor-pointer p-1.5 rounded-md bg-pink-500/10 border border-pink-500/20">
+                      <input type="checkbox" checked={crossPostIG} onChange={(e) => setCrossPostIG(e.target.checked)} className="rounded bg-background" />
+                      <span className="text-[11px] font-medium text-pink-300">Also upload to Instagram Reels</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer p-1.5 rounded-md bg-blue-500/10 border border-blue-500/20">
+                      <input type="checkbox" checked={crossPostFB} onChange={(e) => setCrossPostFB(e.target.checked)} className="rounded bg-background" />
+                      <span className="text-[11px] font-medium text-blue-300">Also upload to Facebook Reels</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer p-1.5 rounded-md bg-zinc-500/10 border border-zinc-500/20">
+                      <input type="checkbox" checked={crossPostX} onChange={(e) => setCrossPostX(e.target.checked)} className="rounded bg-background" />
+                      <span className="text-[11px] font-medium text-zinc-300">Also post on X (Twitter)</span>
+                    </label>
+                  </>
+                )}
+
+                {/* X Cross-posts */}
+                {platform === "x" && (
+                  <>
+                    <label className="flex items-center gap-2 cursor-pointer p-1.5 rounded-md bg-pink-500/10 border border-pink-500/20">
+                      <input type="checkbox" checked={crossPostIG} onChange={(e) => setCrossPostIG(e.target.checked)} className="rounded bg-background" />
+                      <span className="text-[11px] font-medium text-pink-300">Also post on Instagram</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer p-1.5 rounded-md bg-blue-500/10 border border-blue-500/20">
+                      <input type="checkbox" checked={crossPostFB} onChange={(e) => setCrossPostFB(e.target.checked)} className="rounded bg-background" />
+                      <span className="text-[11px] font-medium text-blue-300">Also post on Facebook</span>
+                    </label>
+                  </>
+                )}
+              </div>
             </div>
             
             {/* Date & Time */}
@@ -374,6 +467,18 @@ export function NewPostDialog({ onPostAdded }: { onPostAdded?: () => void }) {
                 onChange={(e) => setDescription(e.target.value)}
               />
             </div>
+            
+            {platform === "youtube" && (
+              <div className="space-y-2">
+                <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Thumbnail Image URL (Optional)</Label>
+                <Input 
+                  className="bg-background/50 border-border/50 h-9 text-xs"
+                  placeholder="https://your-thumbnail-link.jpg"
+                  value={thumbnailUrl}
+                  onChange={(e) => setThumbnailUrl(e.target.value)}
+                />
+              </div>
+            )}
           </div>
         </div>
         
@@ -383,12 +488,20 @@ export function NewPostDialog({ onPostAdded }: { onPostAdded?: () => void }) {
           
           <div className="flex justify-end gap-2 mt-1">
             <Button variant="ghost" size="sm" onClick={() => setOpen(false)} disabled={isSubmitting} className="hover:bg-muted/50 h-8 text-xs">Cancel</Button>
-            <Button onClick={() => handleSave("scheduled")} size="sm" disabled={isSubmitting} className="bg-indigo-500 text-white hover:bg-indigo-600 px-4 h-8 text-xs font-medium">
-              {isSubmitting ? "Saving..." : "Schedule Post"}
-            </Button>
-            <Button onClick={() => handleSave("published")} size="sm" disabled={isSubmitting} className="bg-white text-black hover:bg-white/90 px-6 h-8 text-xs font-medium shadow-[0_0_15px_rgba(255,255,255,0.2)]">
-              {isSubmitting ? "Uploading..." : "Publish Right Now"}
-            </Button>
+              {editPost ? (
+                <Button onClick={() => handleSave(editPost.status)} disabled={isSubmitting} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl h-12 text-sm font-bold shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 transition-all">
+                  {isSubmitting ? "Updating..." : "Update Details"}
+                </Button>
+              ) : (
+                <Button onClick={() => handleSave("scheduled")} disabled={isSubmitting} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl h-12 text-sm font-bold shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 transition-all">
+                  {isSubmitting ? "Saving..." : "Schedule Post"}
+                </Button>
+              )}
+              {!editPost && (
+                <Button onClick={() => handleSave("published")} disabled={isSubmitting || platform !== 'instagram'} className="flex-1 bg-green-500 hover:bg-green-600 text-white rounded-xl h-12 text-sm font-bold shadow-lg shadow-green-500/20 hover:shadow-green-500/40 transition-all">
+                  Publish Now
+                </Button>
+              )}
           </div>
         </div>
       </DialogContent>

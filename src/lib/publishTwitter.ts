@@ -16,14 +16,21 @@ export async function publishToTwitter(postId: string, userId: string) {
 
   if (postError || !post) throw new Error("Post not found");
   
-  const appKey = process.env.TWITTER_API_KEY;
-  const appSecret = process.env.TWITTER_API_SECRET;
-  const accessToken = process.env.TWITTER_ACCESS_TOKEN;
-  const accessSecret = process.env.TWITTER_ACCESS_SECRET;
+  // 2. Fetch Keys
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("api_keys")
+    .eq("id", userId)
+    .single();
 
-  if (!appKey || !appSecret || !accessToken || !accessSecret) {
-    throw new Error("Twitter API credentials must be configured in .env.local");
+  if (profileError || !profile) throw new Error("Profile not found");
+
+  const xKeys = profile.api_keys?.x;
+  if (!xKeys || typeof xKeys !== 'object' || !xKeys.appKey || !xKeys.appSecret || !xKeys.accessToken || !xKeys.accessSecret) {
+    throw new Error("Twitter API credentials must be configured in your Profile");
   }
+
+  const { appKey, appSecret, accessToken, accessSecret } = xKeys;
 
   // 2. Setup Client
   const twitterClient = new TwitterApi({
@@ -70,7 +77,7 @@ export async function publishToTwitter(postId: string, userId: string) {
   // 5. Update DB
   await supabase
     .from("posts")
-    .update({ status: "published" })
+    .update({ status: "published", platform_post_id: tweetRes.data.id })
     .eq("id", postId);
 
   return tweetRes.data.id;

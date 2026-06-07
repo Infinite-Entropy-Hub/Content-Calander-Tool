@@ -29,19 +29,16 @@ export async function publishToYouTube(postId: string, userId: string) {
 
   if (profileError || !profile) throw new Error("Profile not found");
 
-  const ytRefreshToken = profile.api_keys?.youtube;
-  if (!ytRefreshToken) throw new Error("YouTube Refresh Token not configured in Profile");
-
-  const clientId = process.env.YOUTUBE_CLIENT_ID;
-  const clientSecret = process.env.YOUTUBE_CLIENT_SECRET;
-
-  if (!clientId || !clientSecret) {
-    throw new Error("YOUTUBE_CLIENT_ID and YOUTUBE_CLIENT_SECRET must be set in .env");
+  const ytKeys = profile.api_keys?.youtube;
+  if (!ytKeys || typeof ytKeys !== 'object' || !ytKeys.clientId || !ytKeys.clientSecret || !ytKeys.refreshToken) {
+    throw new Error("YouTube API credentials must be configured in your Profile");
   }
+
+  const { clientId, clientSecret, refreshToken } = ytKeys;
 
   // 3. Setup OAuth2 Client
   const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
-  oauth2Client.setCredentials({ refresh_token: ytRefreshToken });
+  oauth2Client.setCredentials({ refresh_token: refreshToken });
 
   const youtube = google.youtube({ version: "v3", auth: oauth2Client });
 
@@ -77,7 +74,7 @@ export async function publishToYouTube(postId: string, userId: string) {
   // 6. Update DB
   await supabase
     .from("posts")
-    .update({ status: "published" })
+    .update({ status: "published", platform_post_id: insertRes.data.id })
     .eq("id", postId);
 
   return insertRes.data.id;

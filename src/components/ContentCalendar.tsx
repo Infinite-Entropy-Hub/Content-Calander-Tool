@@ -13,7 +13,7 @@ import {
   startOfWeek,
   endOfWeek,
 } from "date-fns";
-import { ChevronLeft, ChevronRight, Download, Copy, Trash2, CheckCircle2, Send } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Copy, Trash2, CheckCircle2, Send, ExternalLink, Edit3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NewPostDialog, PLATFORMS } from "./NewPostDialog";
 import { supabase } from "@/lib/supabase";
@@ -63,9 +63,13 @@ export function ContentCalendar() {
     alert("Caption copied to clipboard!");
   };
 
-  const downloadMedia = (url: string) => {
-    if (!url) return;
-    window.open(url, "_blank");
+  const downloadAllMedia = () => {
+    if (!selectedPost?.media_urls) return;
+    selectedPost.media_urls.forEach((url: string, index: number) => {
+      setTimeout(() => {
+        window.open(url, "_blank");
+      }, index * 500);
+    });
   };
 
   const executeDelete = async () => {
@@ -267,6 +271,18 @@ export function ContentCalendar() {
 
   const selectedPlatform = selectedPost ? PLATFORMS.find(p => p.id === selectedPost.platform) : null;
 
+  const getViewLink = (platform: string, id: string) => {
+    if (!id) return null;
+    if (platform === "youtube") return `https://youtube.com/watch?v=${id}`;
+    if (platform === "x") return `https://x.com/i/web/status/${id}`;
+    if (platform === "instagram") return `https://instagram.com/p/${id}`;
+    if (platform === "facebook") {
+      const parts = id.split('_');
+      return parts.length > 1 ? `https://facebook.com/${parts[0]}/posts/${parts[1]}` : `https://facebook.com/${id}`;
+    }
+    return null;
+  };
+
   return (
     <>
       <div className="bg-card/40 backdrop-blur-3xl rounded-3xl border border-border/50 shadow-2xl overflow-hidden h-full flex flex-col text-sm">
@@ -329,7 +345,7 @@ export function ContentCalendar() {
                 <Copy className="w-3.5 h-3.5 mr-1.5" /> Copy
               </Button>
               {selectedPost?.media_urls && selectedPost.media_urls.length > 0 && (
-                <Button onClick={() => downloadMedia(selectedPost.media_urls[0])} variant="secondary" size="sm" className="flex-1 text-[11px] h-8 min-w-[70px]">
+                <Button onClick={downloadAllMedia} variant="secondary" size="sm" className="flex-1 text-[11px] h-8 min-w-[70px]">
                   <Download className="w-3.5 h-3.5 mr-1.5" /> Save
                 </Button>
               )}
@@ -339,7 +355,6 @@ export function ContentCalendar() {
                 </Button>
               )}
               
-              {/* Done Button logic fix */}
               <Button 
                 onClick={handleMarkDone} 
                 disabled={selectedPost?.status === 'published' || selectedPost?.status === 'posted'}
@@ -354,10 +369,36 @@ export function ContentCalendar() {
                 {selectedPost?.status === 'published' || selectedPost?.status === 'posted' ? "Completed" : "Done"}
               </Button>
 
-              <Button onClick={() => setDeleteDialogOpen(true)} variant="destructive" size="sm" className="flex-1 text-[11px] h-8 min-w-[75px]">
+              <NewPostDialog 
+                editPost={selectedPost} 
+                onPostAdded={() => {
+                  setSelectedPost(null);
+                  fetchPosts();
+                }} 
+                triggerBtn={
+                  <Button variant="outline" size="sm" className="flex-1 text-[11px] h-8 min-w-[70px]">
+                    <Edit3 className="w-3.5 h-3.5 mr-1.5" /> Edit
+                  </Button>
+                }
+              />
+
+              <Button onClick={() => setDeleteDialogOpen(true)} variant="destructive" size="sm" className="flex-1 text-[11px] h-8 min-w-[70px]">
                 <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete
               </Button>
             </div>
+
+            {selectedPost?.platform_post_id && (
+              <div className="pt-2">
+                <Button 
+                  onClick={() => window.open(getViewLink(selectedPost.platform, selectedPost.platform_post_id) as string, '_blank')}
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full text-xs h-9 bg-background/50 hover:bg-background border-border/50 text-indigo-300 hover:text-indigo-200"
+                >
+                  <ExternalLink className="w-3.5 h-3.5 mr-2" /> View Live on {selectedPlatform?.name || "Platform"}
+                </Button>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

@@ -36,7 +36,7 @@ export default function ProfilePage() {
   const [isSaving, setIsSaving] = useState(false);
   
   const [selectedPlatform, setSelectedPlatform] = useState<any>(null);
-  const [apiKeyInput, setApiKeyInput] = useState("");
+  const [apiKeysObj, setApiKeysObj] = useState<Record<string, string>>({});
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isYTGuideOpen, setIsYTGuideOpen] = useState(false);
@@ -84,12 +84,16 @@ export default function ProfilePage() {
     setIsSaving(true);
     try {
       const currentKeys = profile?.api_keys || {};
-      const newKeys = { ...currentKeys, [selectedPlatform.id]: apiKeyInput };
+      const valueToSave = ['instagram', 'facebook'].includes(selectedPlatform.id) 
+        ? apiKeysObj.token 
+        : apiKeysObj;
+        
+      const newKeys = { ...currentKeys, [selectedPlatform.id]: valueToSave };
       
       await supabase.from("profiles").update({ api_keys: newKeys }).eq("id", user.id);
       setProfile({ ...profile, api_keys: newKeys });
       setIsDialogOpen(false);
-      setApiKeyInput("");
+      setApiKeysObj({});
     } catch (e) {
       console.error(e);
     } finally {
@@ -140,7 +144,14 @@ export default function ProfilePage() {
                       key={platform.id}
                       onClick={() => {
                         setSelectedPlatform(platform);
-                        setApiKeyInput(profile?.api_keys?.[platform.id] || "");
+                        const currentVal = profile?.api_keys?.[platform.id];
+                        if (typeof currentVal === 'object' && currentVal !== null) {
+                          setApiKeysObj(currentVal);
+                        } else if (typeof currentVal === 'string') {
+                          setApiKeysObj({ token: currentVal });
+                        } else {
+                          setApiKeysObj({});
+                        }
                         setIsDialogOpen(true);
                       }}
                       className={`relative p-4 rounded-2xl border transition-all cursor-pointer flex flex-col items-center justify-center gap-3 text-center ${
@@ -234,16 +245,89 @@ export default function ProfilePage() {
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label>API Key / Access Token</Label>
-                <Input 
-                  type="password" 
-                  placeholder="Paste your token here..." 
-                  value={apiKeyInput}
-                  onChange={(e) => setApiKeyInput(e.target.value)}
-                  className="bg-background/50 border-border/50"
-                />
-              </div>
+              {['instagram', 'facebook'].includes(selectedPlatform?.id) && (
+                <div className="space-y-2">
+                  <Label>Access Token</Label>
+                  <Input 
+                    type="password" 
+                    placeholder="Paste your token here..." 
+                    value={apiKeysObj.token || ''}
+                    onChange={(e) => setApiKeysObj({...apiKeysObj, token: e.target.value})}
+                    className="bg-background/50 border-border/50"
+                  />
+                </div>
+              )}
+              {selectedPlatform?.id === 'youtube' && (
+                <>
+                  <div className="space-y-2">
+                    <Label>Client ID</Label>
+                    <Input 
+                      type="password" 
+                      value={apiKeysObj.clientId || ''}
+                      onChange={(e) => setApiKeysObj({...apiKeysObj, clientId: e.target.value})}
+                      className="bg-background/50 border-border/50"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Client Secret</Label>
+                    <Input 
+                      type="password" 
+                      value={apiKeysObj.clientSecret || ''}
+                      onChange={(e) => setApiKeysObj({...apiKeysObj, clientSecret: e.target.value})}
+                      className="bg-background/50 border-border/50"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Refresh Token</Label>
+                    <Input 
+                      type="password" 
+                      value={apiKeysObj.refreshToken || ''}
+                      onChange={(e) => setApiKeysObj({...apiKeysObj, refreshToken: e.target.value})}
+                      className="bg-background/50 border-border/50"
+                    />
+                  </div>
+                </>
+              )}
+              {selectedPlatform?.id === 'x' && (
+                <>
+                  <div className="space-y-2">
+                    <Label>API Key</Label>
+                    <Input 
+                      type="password" 
+                      value={apiKeysObj.appKey || ''}
+                      onChange={(e) => setApiKeysObj({...apiKeysObj, appKey: e.target.value})}
+                      className="bg-background/50 border-border/50"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>API Secret</Label>
+                    <Input 
+                      type="password" 
+                      value={apiKeysObj.appSecret || ''}
+                      onChange={(e) => setApiKeysObj({...apiKeysObj, appSecret: e.target.value})}
+                      className="bg-background/50 border-border/50"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Access Token</Label>
+                    <Input 
+                      type="password" 
+                      value={apiKeysObj.accessToken || ''}
+                      onChange={(e) => setApiKeysObj({...apiKeysObj, accessToken: e.target.value})}
+                      className="bg-background/50 border-border/50"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Access Secret</Label>
+                    <Input 
+                      type="password" 
+                      value={apiKeysObj.accessSecret || ''}
+                      onChange={(e) => setApiKeysObj({...apiKeysObj, accessSecret: e.target.value})}
+                      className="bg-background/50 border-border/50"
+                    />
+                  </div>
+                </>
+              )}
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
@@ -336,7 +420,7 @@ export default function ProfilePage() {
                   <li>Go to <b>Credentials</b> on the left menu.</li>
                   <li>Click <b>Create Credentials</b> {">"} <b>OAuth client ID</b>. (Choose Web Application).</li>
                   <li>Add <code className="bg-muted px-1 rounded text-xs">https://developers.google.com/oauthplayground</code> to Authorized redirect URIs.</li>
-                  <li>Save and copy your <b>Client ID</b> and <b>Client Secret</b> into your `.env.local` file as <code className="bg-muted px-1 rounded text-xs text-indigo-300">YOUTUBE_CLIENT_ID</code> and <code className="bg-muted px-1 rounded text-xs text-indigo-300">YOUTUBE_CLIENT_SECRET</code>.</li>
+                  <li>Save and copy your <b>Client ID</b> and <b>Client Secret</b> into this dashboard.</li>
                 </ol>
               </div>
               
@@ -372,33 +456,31 @@ export default function ProfilePage() {
             </DialogHeader>
             <div className="space-y-4 py-2 text-sm text-foreground/90">
               <div className="space-y-2">
-                <h4 className="font-bold text-zinc-300">Step 1: Developer Portal</h4>
+                <h4 className="font-bold text-zinc-300">Step 1: Developer Portal & Billing</h4>
                 <ol className="list-decimal pl-5 space-y-1">
                   <li>Go to <a href="https://developer.x.com/en/portal/dashboard" target="_blank" className="text-indigo-400 underline">developer.x.com</a> and sign up.</li>
-                  <li>Sign up for the <b>Free Tier</b> (allows 1,500 posts/month).</li>
                   <li>Create a new Project and a new App.</li>
+                  <li><span className="text-yellow-400 font-bold">Important:</span> You must have a positive credit balance to post. Click <b>Buy Credits</b> in the dashboard and add a tiny amount (like $5) to enable the API!</li>
                 </ol>
               </div>
               
               <div className="space-y-2">
                 <h4 className="font-bold text-zinc-300">Step 2: Change App Permissions</h4>
                 <ol className="list-decimal pl-5 space-y-1">
-                  <li>Inside your App settings, find <b>User authentication settings</b> and click Edit.</li>
+                  <li>Inside your App settings (click the <b>Settings Gear icon</b>), click Edit on <b>Authentication settings</b>.</li>
                   <li>Set the App permissions to <b>Read and write</b>. (This is required to post!).</li>
                   <li>For Type of App, select <b>Web App, Automated App or Bot</b>.</li>
-                  <li>Enter dummy URLs for Callback and Website if required.</li>
+                  <li>Enter dummy URLs for Callback and Website, then click Save Changes.</li>
                 </ol>
               </div>
 
               <div className="space-y-2">
                 <h4 className="font-bold text-zinc-300">Step 3: Generate the 4 Keys</h4>
-                <p className="text-xs text-muted-foreground">Because Twitter requires 4 keys, we store them directly in the environment variables instead of this UI dashboard.</p>
+                <p className="text-xs text-muted-foreground">Twitter requires 4 keys. Copy each into this dashboard!</p>
                 <ol className="list-decimal pl-5 space-y-1">
                   <li>Go to the <b>Keys and Tokens</b> tab of your App.</li>
-                  <li>Click Regenerate on the <b>Consumer Keys</b>.</li>
-                  <li>Copy them into your `.env.local` file as <code className="bg-muted px-1 rounded text-xs text-indigo-300">TWITTER_API_KEY</code> and <code className="bg-muted px-1 rounded text-xs text-indigo-300">TWITTER_API_SECRET</code>.</li>
-                  <li>Click Generate on the <b>Authentication Tokens (Access Token and Secret)</b>.</li>
-                  <li>Copy them into your `.env.local` file as <code className="bg-muted px-1 rounded text-xs text-indigo-300">TWITTER_ACCESS_TOKEN</code> and <code className="bg-muted px-1 rounded text-xs text-indigo-300">TWITTER_ACCESS_SECRET</code>.</li>
+                  <li>Click Regenerate on the <b>Consumer Keys</b> to get your API Key and API Secret.</li>
+                  <li>Click Regenerate on the <b>Authentication Tokens (Access Token and Secret)</b>. (Make sure it says "Read and Write" under it after generating!)</li>
                 </ol>
               </div>
             </div>
