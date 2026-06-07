@@ -30,7 +30,7 @@ export const PLATFORMS = [
 
 import { useEffect } from "react";
 
-export function NewPostDialog({ onPostAdded, editPost, triggerBtn }: { onPostAdded?: () => void; editPost?: any; triggerBtn?: React.ReactNode }) {
+export function NewPostDialog({ onPostAdded, editPost, triggerBtn, initialDate }: { onPostAdded?: () => void; editPost?: any; triggerBtn?: React.ReactNode; initialDate?: Date }) {
   const [open, setOpen] = useState(false);
   const [platform, setPlatform] = useState<string>("instagram");
   const [postFormat, setPostFormat] = useState<string>("reel");
@@ -75,8 +75,13 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn }: { onPostAdd
       }
     } else if (open && !editPost) {
       resetForm();
+      if (initialDate) {
+        setScheduledDate(format(initialDate, "yyyy-MM-dd"));
+        // if user clicked a specific date to add a post, maybe check isScheduled?
+        // Let's leave it unchecked by default so they can just save as draft for that day, or they can check it.
+      }
     }
-  }, [open, editPost]);
+  }, [open, editPost, initialDate]);
 
   // Dynamic Formats based on platform
   const getFormatOptions = () => {

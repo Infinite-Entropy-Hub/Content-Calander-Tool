@@ -69,12 +69,13 @@ export async function GET(req: Request) {
             throw new Error(`Unsupported platform: ${post.platform}`);
         }
 
-        // The lib functions generally update the status to "published" already.
-        // But we ensure published_at is set here.
+        const successMsg = `[AUTO-PUBLISHED] Successfully executed at ${new Date().toISOString()}`;
+        // We ensure status is marked as published and log success.
         const { error: updateError } = await supabaseAdmin
           .from('posts')
           .update({ 
-            published_at: new Date().toISOString()
+            status: 'published',
+            error_log: successMsg
           })
           .eq('id', post.id);
 
@@ -85,15 +86,15 @@ export async function GET(req: Request) {
       } catch (err: any) {
         console.error(`Error publishing post ${post.id}:`, err);
         
-        // Append error to notes and mark as failed
+        // Append error to error_log and mark as failed
         const errorMessage = err.message || JSON.stringify(err);
-        const newNotes = post.notes ? `${post.notes}\n\n[AUTO-PUBLISH FAILED]: ${errorMessage}` : `[AUTO-PUBLISH FAILED]: ${errorMessage}`;
+        const errorLogMsg = `[AUTO-PUBLISH FAILED] at ${new Date().toISOString()}:\n${errorMessage}`;
         
         await supabaseAdmin
           .from('posts')
           .update({ 
             status: 'failed', 
-            notes: newNotes 
+            error_log: errorLogMsg
           })
           .eq('id', post.id);
           

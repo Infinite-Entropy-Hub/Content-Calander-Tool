@@ -217,12 +217,23 @@ export function ContentCalendar() {
             {isToday && (
               <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-indigo-500 to-purple-500" />
             )}
-            <div className="flex justify-between items-start mb-1">
-              <span className={`text-xs font-semibold w-6 h-6 flex items-center justify-center rounded-full transition-colors ${
-                isToday ? 'bg-indigo-500 text-white shadow-[0_0_10px_rgba(99,102,241,0.5)]' : 'text-muted-foreground group-hover:text-foreground'
+            <div className="flex justify-between items-start mb-1 relative">
+              <span className={`text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full transition-colors ${
+                isToday ? 'bg-indigo-500 text-white shadow-[0_0_8px_rgba(99,102,241,0.5)]' : 'text-muted-foreground group-hover:text-foreground'
               }`}>
                 {formattedDate}
               </span>
+              <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute right-0 top-0">
+                <NewPostDialog 
+                  initialDate={currentDay}
+                  onPostAdded={fetchPosts}
+                  triggerBtn={
+                    <Button variant="ghost" size="icon" className="h-5 w-5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-full">
+                      <span className="text-sm font-light leading-none mb-[1px]">+</span>
+                    </Button>
+                  }
+                />
+              </div>
             </div>
             
             <div className="space-y-1 mt-1">
@@ -367,105 +378,137 @@ export function ContentCalendar() {
       </div>
 
       <Dialog open={!!selectedPost} onOpenChange={() => setSelectedPost(null)}>
-        <DialogContent className="sm:max-w-[500px] bg-background/95 backdrop-blur-3xl border-border/50">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold flex items-center justify-between gap-2">
+        <DialogContent className="sm:max-w-4xl bg-background/95 backdrop-blur-3xl border-border/50 overflow-hidden p-0">
+          <div className="p-6 pb-2 border-b border-border/50">
+            <DialogTitle className="text-2xl font-bold flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 {selectedPlatform && <img src={selectedPlatform.logo} className="w-6 h-6 object-contain" />}
-                <span className="truncate max-w-[250px]">{selectedPost?.title}</span>
+                <span className="truncate max-w-[350px] uppercase">{selectedPost?.title}</span>
               </div>
-              <span className="text-xs font-normal uppercase tracking-widest px-2 py-1 rounded-md bg-muted text-muted-foreground">
-                {selectedPost?.status} • {selectedPost?.post_format}
-              </span>
+              <div className="flex items-center gap-2 flex-wrap">
+                {selectedPost?.is_scheduled && selectedPost?.scheduled_for && (
+                  <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-md bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                    {format(new Date(selectedPost.scheduled_for), "MMM d, yyyy • h:mm a")}
+                  </span>
+                )}
+                <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-md bg-muted text-muted-foreground border border-border/50">
+                  {selectedPost?.status} • {selectedPost?.post_format}
+                </span>
+              </div>
             </DialogTitle>
-          </DialogHeader>
+          </div>
           
-          <div className="space-y-4 py-2">
-            {selectedPost?.media_urls && selectedPost.media_urls.length > 0 ? (
-              <div className="w-full flex gap-2 overflow-x-auto pb-2 snap-x">
-                {selectedPost.media_urls.map((url: string, index: number) => (
-                  <div key={index} className="w-full sm:min-w-[400px] h-64 bg-black/50 rounded-xl overflow-hidden flex items-center justify-center relative border border-border/50 shrink-0 snap-center">
-                    {url.match(/\.(mp4|mov|webm)$/i) ? (
-                      <video src={url} controls className="max-w-full max-h-full object-contain" onError={(e) => {
-                        const target = e.target as HTMLVideoElement;
-                        target.style.display = 'none';
-                        if (target.parentElement) {
-                          target.parentElement.innerHTML = '<div class="text-xs text-muted-foreground">Media no longer available in library</div>';
-                        }
-                      }} />
-                    ) : (
-                      <img src={url} alt={`Media ${index}`} className="max-w-full max-h-full object-contain" onError={(e) => {
-                        (e.target as HTMLImageElement).src = "https://placehold.co/400x300/1e1e1e/888888?text=Media+Unavailable";
-                      }} />
-                    )}
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_400px] gap-6 p-6 overflow-y-auto max-h-[75vh]">
+            {/* LEFT COLUMN: Media Preview */}
+            <div className="space-y-4 h-full flex flex-col">
+              {selectedPost?.media_urls && selectedPost.media_urls.length > 0 ? (
+                <div className="w-full flex-1 min-h-[300px] bg-black/40 rounded-xl overflow-hidden flex items-center justify-center relative border border-border/50 p-2">
+                  <div className="flex flex-col gap-3 w-full h-full overflow-y-auto pr-1">
+                    {selectedPost.media_urls.map((url: string, index: number) => (
+                      <div key={index} className="w-full relative rounded-lg overflow-hidden flex items-center justify-center border border-border/30 shrink-0 bg-black/50 aspect-[4/5] max-h-[600px]">
+                        {url.match(/\.(mp4|mov|webm)$/i) ? (
+                          <video src={url} controls className="w-full h-full object-contain" onError={(e) => {
+                            const target = e.target as HTMLVideoElement;
+                            target.style.display = 'none';
+                            if (target.parentElement) {
+                              target.parentElement.innerHTML = '<div class="text-xs text-muted-foreground">Media no longer available</div>';
+                            }
+                          }} />
+                        ) : (
+                          <img src={url} alt={`Media ${index}`} className="w-full h-full object-contain" onError={(e) => {
+                            (e.target as HTMLImageElement).src = "https://placehold.co/400x500/1e1e1e/888888?text=Media+Unavailable";
+                          }} />
+                        )}
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="w-full h-24 bg-muted/30 rounded-xl flex items-center justify-center border border-border/50 border-dashed text-muted-foreground text-xs">
-                No Media Attached
-              </div>
-            )}
+                </div>
+              ) : (
+                <div className="w-full min-h-[300px] bg-muted/30 rounded-xl flex items-center justify-center border border-border/50 border-dashed text-muted-foreground text-xs">
+                  No Media Attached
+                </div>
+              )}
+            </div>
             
-            <div className="space-y-2 bg-card/50 p-3 rounded-xl border border-border/50 max-h-[150px] overflow-y-auto">
-              <p className="text-sm whitespace-pre-wrap">{selectedPost?.description || "No description provided."}</p>
-            </div>
-
-            {selectedPost?.notes && (
-              <div className="space-y-1 bg-yellow-500/10 p-3 rounded-xl border border-yellow-500/20 max-h-[150px] overflow-y-auto">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-yellow-500/80">Internal Notes (Manual Instructions)</span>
-                <p className="text-xs text-yellow-200/90 whitespace-pre-wrap">{selectedPost.notes}</p>
+            {/* RIGHT COLUMN: Info & Controls */}
+            <div className="space-y-4 flex flex-col h-full">
+              <div className="space-y-2 bg-card/50 p-3.5 rounded-xl border border-border/50 max-h-[200px] overflow-y-auto shrink-0 shadow-inner">
+                <p className="text-sm whitespace-pre-wrap text-foreground/90 leading-relaxed">{selectedPost?.description || "No caption provided."}</p>
               </div>
-            )}
 
-            <div className="flex flex-wrap gap-2 pt-3 border-t border-border/50">
-              {errorMsg && <div className="w-full mb-1 px-3 py-2 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-md">{errorMsg}</div>}
-              
-              <Button onClick={copyCaption} variant="secondary" size="sm" className="flex-1 text-[11px] h-8 min-w-[70px]">
-                <Copy className="w-3.5 h-3.5 mr-1.5" /> Copy
-              </Button>
-              {selectedPost?.media_urls && selectedPost.media_urls.length > 0 && (
-                <Button onClick={downloadAllMedia} variant="secondary" size="sm" className="flex-1 text-[11px] h-8 min-w-[70px]">
-                  <Download className="w-3.5 h-3.5 mr-1.5" /> Save
-                </Button>
+              {selectedPost?.notes && (
+                <div className="space-y-1 bg-yellow-500/10 p-3.5 rounded-xl border border-yellow-500/20 shrink-0">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-yellow-500/80">Internal Notes</span>
+                  <p className="text-xs text-yellow-200/90 whitespace-pre-wrap leading-relaxed mt-1">{selectedPost.notes}</p>
+                </div>
               )}
-              {selectedPost?.status !== 'published' && selectedPost?.status !== 'posted' && ['instagram', 'facebook', 'youtube', 'x'].includes(selectedPost?.platform) && (
-                <Button onClick={handlePublishNow} disabled={isPublishing} size="sm" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] h-8 min-w-[85px]">
-                  <Send className="w-3.5 h-3.5 mr-1.5" /> {isPublishing ? "Wait..." : "Publish"}
-                </Button>
-              )}
-              
-              <Button 
-                onClick={handleMarkDone} 
-                disabled={selectedPost?.status === 'published' || selectedPost?.status === 'posted'}
-                size="sm" 
-                className={`flex-1 text-[11px] h-8 min-w-[75px] ${
-                  selectedPost?.status === 'published' || selectedPost?.status === 'posted' 
-                    ? "bg-green-500/20 text-green-400 cursor-not-allowed opacity-70" 
-                    : "bg-green-600 hover:bg-green-700 text-white"
-                }`}
-              >
-                <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> 
-                {selectedPost?.status === 'published' || selectedPost?.status === 'posted' ? "Completed" : "Done"}
-              </Button>
 
-              <NewPostDialog 
-                editPost={selectedPost} 
-                onPostAdded={() => {
-                  setSelectedPost(null);
-                  fetchPosts();
-                }} 
-                triggerBtn={
-                  <Button variant="outline" size="sm" className="flex-1 text-[11px] h-8 min-w-[70px]">
-                    <Edit3 className="w-3.5 h-3.5 mr-1.5" /> Edit
+              {selectedPost?.error_log && (
+                <div className={`space-y-1 p-3.5 rounded-xl border shrink-0 ${selectedPost.status === 'failed' ? 'bg-red-500/10 border-red-500/20' : 'bg-green-500/10 border-green-500/20'}`}>
+                  <span className={`text-[10px] font-bold uppercase tracking-widest ${selectedPost.status === 'failed' ? 'text-red-400' : 'text-green-400'}`}>
+                    Execution Log
+                  </span>
+                  <p className={`text-xs whitespace-pre-wrap leading-relaxed mt-1 ${selectedPost.status === 'failed' ? 'text-red-300' : 'text-green-300'}`}>{selectedPost.error_log}</p>
+                </div>
+              )}
+
+              <div className="flex-1" />
+
+              {/* Action Buttons */}
+              <div className="flex flex-col gap-3 pt-4 border-t border-border/50 shrink-0">
+                {errorMsg && <div className="w-full px-3 py-2 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-md font-medium">{errorMsg}</div>}
+                
+                <div className="grid grid-cols-2 gap-2">
+                  <Button onClick={copyCaption} variant="secondary" size="sm" className="w-full text-xs h-9">
+                    <Copy className="w-3.5 h-3.5 mr-2" /> Copy Caption
                   </Button>
-                }
-              />
+                  {selectedPost?.media_urls && selectedPost.media_urls.length > 0 && (
+                    <Button onClick={downloadAllMedia} variant="secondary" size="sm" className="w-full text-xs h-9">
+                      <Download className="w-3.5 h-3.5 mr-2" /> Save Media
+                    </Button>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {selectedPost?.status !== 'published' && selectedPost?.status !== 'posted' && ['instagram', 'facebook', 'youtube', 'x'].includes(selectedPost?.platform) && (
+                    <Button onClick={handlePublishNow} disabled={isPublishing} size="sm" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs h-9">
+                      <Send className="w-3.5 h-3.5 mr-2" /> {isPublishing ? "Wait..." : "Publish"}
+                    </Button>
+                  )}
+                  
+                  <Button 
+                    onClick={handleMarkDone} 
+                    disabled={selectedPost?.status === 'published' || selectedPost?.status === 'posted'}
+                    size="sm" 
+                    className={`w-full text-xs h-9 ${
+                      selectedPost?.status === 'published' || selectedPost?.status === 'posted' 
+                        ? "bg-green-500/20 text-green-400 cursor-not-allowed opacity-70" 
+                        : "bg-green-600 hover:bg-green-700 text-white"
+                    }`}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 mr-2" /> 
+                    {selectedPost?.status === 'published' || selectedPost?.status === 'posted' ? "Completed" : "Mark Done"}
+                  </Button>
+                </div>
 
-              <Button onClick={() => setDeleteDialogOpen(true)} variant="destructive" size="sm" className="flex-1 text-[11px] h-8 min-w-[70px]">
-                <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete
-              </Button>
-            </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <NewPostDialog 
+                    editPost={selectedPost} 
+                    onPostAdded={() => {
+                      setSelectedPost(null);
+                      fetchPosts();
+                    }} 
+                    triggerBtn={
+                      <Button variant="outline" size="sm" className="w-full text-xs h-9 bg-background/50">
+                        <Edit3 className="w-3.5 h-3.5 mr-2" /> Edit Details
+                      </Button>
+                    }
+                  />
+
+                  <Button onClick={() => setDeleteDialogOpen(true)} variant="destructive" size="sm" className="w-full text-xs h-9 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20">
+                    <Trash2 className="w-3.5 h-3.5 mr-2" /> Delete
+                  </Button>
+                </div>
+              </div>
 
             {selectedPost?.platform_post_id && (
               <div className="pt-2">
@@ -479,6 +522,7 @@ export function ContentCalendar() {
                 </Button>
               </div>
             )}
+          </div>
           </div>
         </DialogContent>
       </Dialog>
