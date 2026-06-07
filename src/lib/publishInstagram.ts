@@ -104,7 +104,7 @@ export async function publishToInstagram(postId: string, userId: string) {
   // 6. Meta API: Poll
   let isReady = false;
   let attempts = 0;
-  while (!isReady && attempts < 10) {
+  while (!isReady && attempts < 15) { // 15 attempts
     const statusRes = await fetch(`https://graph.facebook.com/v19.0/${creationId}?fields=status_code&access_token=${igToken}`);
     const statusData = await statusRes.json();
     
@@ -112,11 +112,15 @@ export async function publishToInstagram(postId: string, userId: string) {
       isReady = true;
       break;
     } else if (statusData.status_code === 'ERROR') {
-      throw new Error("Meta API Error processing video");
+      throw new Error(`Meta API Error processing video: ${statusData.error_message || 'Unknown processing error'}`);
     }
     
-    await new Promise(resolve => setTimeout(resolve, 5000));
+    await new Promise(resolve => setTimeout(resolve, 8000)); // wait 8 seconds per attempt (120s total)
     attempts++;
+  }
+
+  if (!isReady) {
+    throw new Error("Video Processing Timeout: Instagram is still processing the video file. It takes a while for larger files. Please wait a minute and click 'Publish' again manually.");
   }
 
   // 7. Meta API: Publish
