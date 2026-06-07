@@ -13,7 +13,7 @@ import {
   startOfWeek,
   endOfWeek,
 } from "date-fns";
-import { ChevronLeft, ChevronRight, Download, Copy, Trash2, CheckCircle2, Send, ExternalLink, Edit3 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Copy, Trash2, CheckCircle2, Send, ExternalLink, Edit3, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NewPostDialog, PLATFORMS } from "./NewPostDialog";
 import { toast } from "sonner";
@@ -32,6 +32,15 @@ export function ContentCalendar() {
   const [deleteMediaChecked, setDeleteMediaChecked] = useState(true);
   const [deletePostChecked, setDeletePostChecked] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    // Auto-scroll to today on mobile
+    const todayId = `day-${format(new Date(), "yyyy-MM-dd")}`;
+    const el = document.getElementById(todayId);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [currentDate]);
 
   const fetchPosts = async () => {
     try {
@@ -308,6 +317,13 @@ export function ContentCalendar() {
 
   const renderMobileList = () => {
     const monthStart = startOfMonth(currentDate);
+    const monthEnd = endOfMonth(monthStart);
+    let dayCursor = monthStart;
+    const daysArray = [];
+    while (dayCursor <= monthEnd) {
+      daysArray.push(dayCursor);
+      dayCursor = addDays(dayCursor, 1);
+    }
     
     // get all posts for the month, sort by date
     const monthPosts = posts.filter(p => p.scheduled_for && isSameMonth(new Date(p.scheduled_for), monthStart)).sort((a, b) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime());
@@ -328,23 +344,36 @@ export function ContentCalendar() {
 
     return (
       <div className="md:hidden flex flex-col p-4 space-y-6">
-        {Object.keys(groupedPosts).length === 0 ? (
-          <div className="text-center py-10 text-muted-foreground text-sm">No posts scheduled this month.</div>
-        ) : (
-          Object.keys(groupedPosts).map(dateStr => {
-            const dateObj = new Date(dateStr);
-            const isToday = isSameDay(dateObj, new Date());
-            
-            return (
-              <div key={dateStr} className="flex flex-col gap-3">
+        {daysArray.map(dateObj => {
+          const dateStr = format(dateObj, "yyyy-MM-dd");
+          const isToday = isSameDay(dateObj, new Date());
+          const dayPosts = groupedPosts[dateStr] || [];
+          
+          return (
+            <div key={dateStr} id={`day-${dateStr}`} className={`flex flex-col gap-3 scroll-mt-20 ${isToday ? 'bg-indigo-500/5 p-3 rounded-2xl border border-indigo-500/20' : ''}`}>
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className={`text-xs font-bold w-8 h-8 flex items-center justify-center rounded-full ${isToday ? 'bg-indigo-500 text-white shadow-[0_0_10px_rgba(99,102,241,0.5)]' : 'bg-muted/50 text-foreground border border-border/50'}`}>
                     {format(dateObj, "d")}
                   </div>
                   <span className={`text-sm font-semibold uppercase tracking-widest ${isToday ? 'text-indigo-400' : 'text-muted-foreground'}`}>{format(dateObj, "EEEE")}</span>
                 </div>
-                <div className="space-y-3 pl-11">
-                  {groupedPosts[dateStr].map(post => {
+                <NewPostDialog 
+                  initialDate={dateObj}
+                  onPostAdded={fetchPosts}
+                  triggerBtn={
+                    <Button variant="ghost" size="icon" className="h-6 w-6 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-full">
+                      <Plus className="w-3 h-3" />
+                    </Button>
+                  }
+                />
+              </div>
+              
+              <div className="space-y-3 pl-11">
+                {dayPosts.length === 0 ? (
+                  <div className="text-[10px] text-muted-foreground/30 py-1 font-medium tracking-wider uppercase">No posts scheduled</div>
+                ) : (
+                  dayPosts.map(post => {
                     return (
                       <div 
                         key={post.id} 
@@ -372,12 +401,12 @@ export function ContentCalendar() {
                         </div>
                       </div>
                     );
-                  })}
-                </div>
+                  })
+                )}
               </div>
-            );
-          })
-        )}
+            </div>
+          );
+        })}
       </div>
     );
   };

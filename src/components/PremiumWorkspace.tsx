@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./SidebarLayout";
 import { ContentCalendar } from "./ContentCalendar";
 import { KanbanBoard } from "./KanbanBoard";
@@ -17,7 +17,9 @@ function DashboardView() {
   return (
     <div className="flex flex-col h-full space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold tracking-tight">Content Dashboard</h2>
+        <div className="flex items-center md:hidden">
+          <SidebarTrigger />
+        </div>
         <div className="flex items-center bg-card border border-border/50 rounded-lg p-1">
           <Button 
             variant="ghost" 

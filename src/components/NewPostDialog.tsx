@@ -41,6 +41,7 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn, initialDate }
   const [scheduledDate, setScheduledDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [postTime, setPostTime] = useState(format(new Date(), "HH:mm"));
   const [isScheduled, setIsScheduled] = useState(false);
+  const [autoPublish, setAutoPublish] = useState(true);
   const [notes, setNotes] = useState("");
   
   const [inputType, setInputType] = useState<"upload" | "link">("upload");
@@ -65,21 +66,22 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn, initialDate }
       setPlatform(editPost.platform || "instagram");
       setPostFormat(editPost.post_format || "reel");
       
-      if (editPost.thumbnail_url) setThumbnailUrl(editPost.thumbnail_url);
       if (editPost.notes) setNotes(editPost.notes);
       if (editPost.is_scheduled !== undefined) setIsScheduled(editPost.is_scheduled);
       
       if (editPost.scheduled_for) {
-        const dt = new Date(editPost.scheduled_for);
-        setScheduledDate(format(dt, "yyyy-MM-dd"));
-        setPostTime(format(dt, "HH:mm"));
+        setIsScheduled(editPost.is_scheduled);
+        setScheduledDate(format(new Date(editPost.scheduled_for), "yyyy-MM-dd"));
+        setPostTime(format(new Date(editPost.scheduled_for), "HH:mm"));
       }
+      if (editPost.auto_publish !== undefined) {
+        setAutoPublish(editPost.auto_publish);
+      }
+      setThumbnailUrl(editPost.thumbnail_url || "");
     } else if (open && !editPost) {
       resetForm();
       if (initialDate) {
         setScheduledDate(format(initialDate, "yyyy-MM-dd"));
-        // if user clicked a specific date to add a post, maybe check isScheduled?
-        // Let's leave it unchecked by default so they can just save as draft for that day, or they can check it.
       }
     }
   }, [open, editPost, initialDate]);
@@ -157,6 +159,7 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn, initialDate }
         description,
         notes,
         is_scheduled: isScheduled,
+        auto_publish: autoPublish,
         platform,
         post_format: postFormat,
         status: publishStatus,
@@ -261,6 +264,7 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn, initialDate }
     setScheduledDate(format(new Date(), "yyyy-MM-dd"));
     setPostTime(format(new Date(), "HH:mm"));
     setIsScheduled(false);
+    setAutoPublish(true);
     setNotes("");
   };
 
@@ -432,6 +436,37 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn, initialDate }
                   />
                 </div>
               </div>
+              
+              {isScheduled && (
+                <div className="pt-2 flex flex-col sm:flex-row gap-2 mt-2 border-t border-border/30">
+                  <label className={`flex-1 flex flex-col gap-1 cursor-pointer p-2.5 rounded-lg border transition-all ${autoPublish ? 'bg-indigo-500/10 border-indigo-500/30' : 'bg-background/50 border-border/50 hover:bg-card'}`}>
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="radio" 
+                        name="publishMode"
+                        checked={autoPublish}
+                        onChange={() => setAutoPublish(true)}
+                        className="accent-indigo-500"
+                      />
+                      <span className="text-xs font-bold text-foreground">Automated Publish</span>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground pl-5">Automatically post to platform APIs.</span>
+                  </label>
+                  <label className={`flex-1 flex flex-col gap-1 cursor-pointer p-2.5 rounded-lg border transition-all ${!autoPublish ? 'bg-indigo-500/10 border-indigo-500/30' : 'bg-background/50 border-border/50 hover:bg-card'}`}>
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="radio" 
+                        name="publishMode"
+                        checked={!autoPublish}
+                        onChange={() => setAutoPublish(false)}
+                        className="accent-indigo-500"
+                      />
+                      <span className="text-xs font-bold text-foreground">Manual Notification</span>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground pl-5">Send me an Email & Telegram to post natively.</span>
+                  </label>
+                </div>
+              )}
             </div>
 
             {/* Notes */}
@@ -553,7 +588,7 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn, initialDate }
           <div className="flex justify-end gap-2 mt-1">
             <Button variant="ghost" size="sm" onClick={() => setOpen(false)} disabled={isSubmitting} className="hover:bg-muted/50 h-8 text-xs">Cancel</Button>
               {editPost ? (
-                <Button onClick={() => handleSave(editPost.status)} disabled={isSubmitting} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl h-12 text-sm font-bold shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 transition-all">
+                <Button onClick={() => handleSave(isScheduled ? "scheduled" : (editPost.status === 'scheduled' ? 'draft' : editPost.status))} disabled={isSubmitting} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl h-12 text-sm font-bold shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 transition-all">
                   {isSubmitting ? "Updating..." : "Update Details"}
                 </Button>
               ) : (

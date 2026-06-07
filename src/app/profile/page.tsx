@@ -11,6 +11,7 @@ import { PLATFORMS } from "@/components/NewPostDialog";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 
 const ICONS = [
   // Rick and Morty
@@ -27,7 +28,13 @@ const ICONS = [
   ...Array.from({ length: 12 }, (_, i) => ({
     id: `db_adv_${i + 1}`,
     url: `https://api.dicebear.com/7.x/adventurer/svg?seed=${i + 30}&backgroundColor=b6e3f4,c0aede,d1d4f9`
-  }))
+  })),
+  // Custom Anime
+  { id: 'anime_doraemon', url: 'https://upload.wikimedia.org/wikipedia/en/b/bd/Doraemon_character.png' },
+  { id: 'anime_shinchan', url: 'https://upload.wikimedia.org/wikipedia/en/6/64/Crayon_Shin-chan.png' },
+  { id: 'anime_pikachu', url: 'https://upload.wikimedia.org/wikipedia/en/a/a6/Pok%C3%A9mon_Pikachu_art.png' },
+  { id: 'anime_spongebob', url: 'https://upload.wikimedia.org/wikipedia/en/3/3b/SpongeBob_SquarePants_character.svg' },
+  { id: 'anime_goku', url: 'https://upload.wikimedia.org/wikipedia/en/a/a2/Goku_in_Dragon_Ball_Super.png' }
 ];
 
 export default function ProfilePage() {
@@ -41,6 +48,14 @@ export default function ProfilePage() {
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isYTGuideOpen, setIsYTGuideOpen] = useState(false);
   const [isXGuideOpen, setIsXGuideOpen] = useState(false);
+  const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
+  
+  const [notificationEmail, setNotificationEmail] = useState("");
+  const [telegramChatId, setTelegramChatId] = useState("");
+  const [telegramEnabled, setTelegramEnabled] = useState(false);
+  
+  const [isNotificationGuideOpen, setIsNotificationGuideOpen] = useState(false);
+  const [isTestingNotification, setIsTestingNotification] = useState(false);
   
   const router = useRouter();
 
@@ -56,6 +71,9 @@ export default function ProfilePage() {
       const { data } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
       if (data) {
         setProfile(data);
+        setNotificationEmail(data.notification_email || "");
+        setTelegramChatId(data.telegram_chat_id || "");
+        setTelegramEnabled(data.telegram_enabled || false);
       }
     };
     fetchUser();
@@ -72,6 +90,7 @@ export default function ProfilePage() {
     try {
       await supabase.from("profiles").upsert({ id: user.id, icon: iconId, email: user.email });
       setProfile({ ...profile, icon: iconId });
+      setIsAvatarModalOpen(false); // Close modal on selection
     } catch (e) {
       console.error(e);
     } finally {
@@ -101,6 +120,60 @@ export default function ProfilePage() {
     }
   };
 
+  const saveNotifications = async () => {
+    if (!user) return;
+    setIsSaving(true);
+    try {
+      await supabase.from("profiles").update({
+        notification_email: notificationEmail,
+        telegram_chat_id: telegramChatId,
+        telegram_enabled: telegramEnabled
+      }).eq("id", user.id);
+      
+      setProfile({ 
+        ...profile, 
+        notification_email: notificationEmail, 
+        telegram_chat_id: telegramChatId, 
+        telegram_enabled: telegramEnabled
+      });
+      toast.success("Notification settings saved!");
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to save settings");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const testNotifications = async () => {
+    if (!notificationEmail && !telegramChatId) {
+      toast.error("Please enter an email or Telegram Chat ID first!");
+      return;
+    }
+    
+    // Auto save first just in case
+    await saveNotifications();
+
+    setIsTestingNotification(true);
+    try {
+      const res = await fetch('/api/test-notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: notificationEmail, telegramChatId })
+      });
+      const data = await res.json();
+      
+      if (!res.ok) throw new Error(data.error || "Failed to send test notifications");
+      
+      toast.success("Test notifications sent successfully!");
+    } catch (e: any) {
+      console.error(e);
+      toast.error(`Error: ${e.message}`);
+    } finally {
+      setIsTestingNotification(false);
+    }
+  };
+
   if (!user) return null;
 
   const activeIconData = ICONS.find(i => i.id === (profile?.icon || "rm_1")) || ICONS[0];
@@ -117,14 +190,23 @@ export default function ProfilePage() {
               <p className="text-muted-foreground mt-2">Customize your avatar and connect your integrations</p>
             </div>
 
-            <div className="bg-card/40 backdrop-blur-xl border border-border/50 rounded-3xl p-8 flex items-center gap-8 shadow-xl">
-              <div className="w-32 h-32 rounded-full border-4 border-indigo-500/50 flex items-center justify-center shadow-[0_0_30px_rgba(99,102,241,0.2)] overflow-hidden">
-                <img src={activeIconData.url} alt="Profile" className="w-full h-full object-cover" />
+            <div className="bg-card/40 backdrop-blur-xl border border-border/50 rounded-3xl p-8 flex items-center gap-8 shadow-xl relative overflow-hidden group">
+              <div 
+                onClick={() => setIsAvatarModalOpen(true)}
+                className="w-32 h-32 rounded-full border-4 border-indigo-500/50 flex items-center justify-center shadow-[0_0_30px_rgba(99,102,241,0.2)] overflow-hidden cursor-pointer relative transition-transform hover:scale-105"
+              >
+                <img src={activeIconData.url} alt="Profile" className="w-full h-full object-cover transition-opacity group-hover:opacity-50" />
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                  <Camera className="w-8 h-8 text-white" />
+                </div>
               </div>
               <div>
                 <h2 className="text-2xl font-bold">{user.email}</h2>
                 <p className="text-muted-foreground mt-1">Authenticated via Supabase</p>
-                <Button variant="destructive" className="mt-4" onClick={handleSignOut}>Sign Out</Button>
+                <div className="flex gap-3 mt-4">
+                  <Button variant="outline" className="border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10" onClick={() => setIsAvatarModalOpen(true)}>Change Avatar</Button>
+                  <Button variant="destructive" onClick={handleSignOut}>Sign Out</Button>
+                </div>
               </div>
             </div>
 
@@ -203,29 +285,73 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Avatar Section */}
-            <div className="bg-card/40 backdrop-blur-xl border border-border/50 rounded-3xl p-8 shadow-xl">
-              <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-indigo-400" /> Choose Your Avatar
-              </h3>
-              <div className="grid grid-cols-5 sm:grid-cols-9 gap-4">
-                {ICONS.map((item) => {
-                  const isActive = profile?.icon === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => saveIcon(item.id)}
-                      disabled={isSaving}
-                      className={`aspect-square rounded-2xl flex items-center justify-center transition-all duration-300 overflow-hidden ${
-                        isActive 
-                          ? "ring-4 ring-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.4)] scale-110" 
-                          : "border-2 border-transparent hover:border-border/50 hover:scale-105 opacity-60 hover:opacity-100"
-                      }`}
-                    >
-                      <img src={item.url} alt={`Avatar ${item.id}`} className="w-full h-full object-cover" />
-                    </button>
-                  );
-                })}
+            {/* Notification Settings */}
+            <div className="bg-card/40 backdrop-blur-xl border border-border/50 rounded-3xl p-8 shadow-xl mt-8">
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h3 className="text-xl font-bold flex items-center gap-2">
+                    <Zap className="w-5 h-5 text-indigo-400" /> Notification & Hybrid Automation
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Receive Telegram messages for auto-published content, and Email + Telegram alerts for manual "Hybrid" posts.
+                  </p>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="bg-indigo-500/10 text-indigo-400 border-indigo-500/20 hover:bg-indigo-500/20"
+                  onClick={() => setIsNotificationGuideOpen(true)}
+                >
+                  <Info className="w-4 h-4 mr-2" /> How to find your Chat ID
+                </Button>
+              </div>
+              
+              <div className="space-y-6 max-w-2xl">
+                <div className="space-y-2">
+                  <Label>Email Address (For Manual Post Reminders)</Label>
+                  <Input 
+                    placeholder="you@example.com" 
+                    value={notificationEmail} 
+                    onChange={e => setNotificationEmail(e.target.value)} 
+                    className="bg-background/50"
+                  />
+                  <p className="text-xs text-muted-foreground">Emails are sent via Resend.</p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Telegram Chat ID</Label>
+                  <Input 
+                    placeholder="e.g. 123456789" 
+                    value={telegramChatId} 
+                    onChange={e => setTelegramChatId(e.target.value)} 
+                    className="bg-background/50 font-mono"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Get this by messaging @userinfobot on Telegram.
+                  </p>
+                </div>
+                
+                <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl border border-border/50 bg-background/50 transition-all hover:bg-muted/50">
+                  <input 
+                    type="checkbox" 
+                    checked={telegramEnabled} 
+                    onChange={(e) => setTelegramEnabled(e.target.checked)} 
+                    className="rounded bg-background accent-indigo-500 w-4 h-4" 
+                  />
+                  <div className="flex flex-col">
+                    <span className="text-sm font-semibold">Enable Telegram Notifications</span>
+                    <span className="text-xs text-muted-foreground">Receive instant alerts for successful and failed posts.</span>
+                  </div>
+                </label>
+                
+                <div className="flex gap-4 pt-2">
+                  <Button onClick={saveNotifications} disabled={isSaving} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700">
+                    {isSaving ? "Saving..." : "Save Notification Settings"}
+                  </Button>
+                  <Button onClick={testNotifications} disabled={isTestingNotification} variant="outline" className="w-full sm:w-auto border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10">
+                    {isTestingNotification ? "Sending..." : "Test Notifications"}
+                  </Button>
+                </div>
               </div>
             </div>
             
@@ -499,7 +625,80 @@ export default function ProfilePage() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Notification Setup Guide Dialog */}
+        <Dialog open={isNotificationGuideOpen} onOpenChange={setIsNotificationGuideOpen}>
+          <DialogContent className="sm:max-w-md bg-background/95 backdrop-blur-3xl border border-border/50">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+                <Zap className="w-5 h-5 text-indigo-400" />
+                Find your Telegram Chat ID
+              </DialogTitle>
+              <DialogDescription>
+                We need this ID to send you automated messages.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-6 py-2 text-sm text-foreground/90">
+              
+              <div className="space-y-2">
+                <ol className="list-decimal pl-5 space-y-3">
+                  <li>Open the Telegram app on your phone or computer.</li>
+                  <li>Search for the bot <b>@userinfobot</b> and tap on it.</li>
+                  <li>Click <b>Start</b>. The bot will instantly reply with your `Id` (e.g., <code className="bg-muted px-1 rounded text-xs">123456789</code>).</li>
+                  <li>Copy that ID and paste it into the <b>Telegram Chat ID</b> field.</li>
+                  <li>
+                    <i>
+                      Make sure you have started a chat with our platform's official bot so it has permission to message you! <br/>
+                      👉 <a href="https://t.me/postcal_bot" target="_blank" className="text-indigo-400 font-bold hover:underline">Click here to open @postcal_bot</a> and press <b>Start</b>.
+                    </i>
+                  </li>
+                </ol>
+              </div>
+
+            </div>
+            <div className="flex justify-end pt-2 border-t border-border/50">
+              <Button onClick={() => setIsNotificationGuideOpen(false)} className="bg-indigo-600 hover:bg-indigo-700 text-white">Got it</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
         
+        {/* Avatar Selection Dialog */}
+        <Dialog open={isAvatarModalOpen} onOpenChange={setIsAvatarModalOpen}>
+          <DialogContent className="sm:max-w-4xl bg-background/95 backdrop-blur-3xl border border-border/50 max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-2xl font-bold">
+                <Sparkles className="w-6 h-6 text-indigo-400" />
+                Choose Your Avatar
+              </DialogTitle>
+              <DialogDescription>
+                Select an avatar that represents your brand or identity.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-4 py-4">
+              {ICONS.map((item) => {
+                const isActive = profile?.icon === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => saveIcon(item.id)}
+                    disabled={isSaving}
+                    className={`aspect-square rounded-2xl flex items-center justify-center transition-all duration-300 overflow-hidden bg-white/5 ${
+                      isActive 
+                        ? "ring-4 ring-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.4)] scale-110 z-10" 
+                        : "border-2 border-transparent hover:border-border/50 hover:scale-105 opacity-70 hover:opacity-100"
+                    }`}
+                  >
+                    <img src={item.url} alt={`Avatar ${item.id}`} className="w-full h-full object-contain p-1" />
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex justify-end pt-2 border-t border-border/50">
+              <Button onClick={() => setIsAvatarModalOpen(false)} variant="outline">Close</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
       </div>
     </SidebarProvider>
   );
