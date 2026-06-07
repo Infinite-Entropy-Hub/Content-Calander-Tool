@@ -39,17 +39,49 @@ export async function publishToFacebook(postId: string, userId: string) {
   const pageToken = pagesData.data[0].access_token || igToken;
 
   // 4. Publish to Facebook Page
-  const isVideo = post.media_url.match(/\.(mp4|mov|webm)$/i);
-  let publishUrl = "";
-  
-  if (isVideo) {
-    publishUrl = `https://graph.facebook.com/v19.0/${pageId}/videos?file_url=${encodeURIComponent(post.media_url)}&description=${encodeURIComponent(post.description || "")}&access_token=${pageToken}`;
-  } else {
-    publishUrl = `https://graph.facebook.com/v19.0/${pageId}/photos?url=${encodeURIComponent(post.media_url)}&message=${encodeURIComponent(post.description || "")}&access_token=${pageToken}`;
-  }
+  let publishData: any;
 
-  const publishRes = await fetch(publishUrl, { method: "POST" });
-  const publishData = await publishRes.json();
+  if (post.media_urls && post.media_urls.length > 1) {
+    // --- CAROUSEL LOGIC ---
+    const mediaFbIds = [];
+
+    // Upload each photo as unpublished
+    for (const url of post.media_urls) {
+      const uploadRes = await fetch(`https://graph.facebook.com/v19.0/${pageId}/photos?url=${encodeURIComponent(url)}&published=false&access_token=${pageToken}`, { method: "POST" });
+      const uploadData = await uploadRes.json();
+      if (uploadData.error) throw new Error(`Facebook Photo Upload Error: ${uploadData.error.message}`);
+      mediaFbIds.push({ "media_fbid": uploadData.id });
+    }
+
+    // Publish them together in a feed post
+    const feedRes = await fetch(`https://graph.facebook.com/v19.0/${pageId}/feed`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: post.description || "",
+        attached_media: mediaFbIds,
+        access_token: pageToken
+      })
+    });
+    publishData = await feedRes.json();
+
+  } else {
+    // --- SINGLE MEDIA LOGIC ---
+    const mediaUrl = post.media_urls && post.media_urls.length > 0 ? post.media_urls[0] : post.media_url;
+    if (!mediaUrl) throw new Error("No media attached to post");
+
+    const isVideo = mediaUrl.match(/\.(mp4|mov|webm)$/i);
+    let publishUrl = "";
+    
+    if (isVideo) {
+      publishUrl = `https://graph.facebook.com/v19.0/${pageId}/videos?file_url=${encodeURIComponent(mediaUrl)}&description=${encodeURIComponent(post.description || "")}&access_token=${pageToken}`;
+    } else {
+      publishUrl = `https://graph.facebook.com/v19.0/${pageId}/photos?url=${encodeURIComponent(mediaUrl)}&message=${encodeURIComponent(post.description || "")}&access_token=${pageToken}`;
+    }
+
+    const publishRes = await fetch(publishUrl, { method: "POST" });
+    publishData = await publishRes.json();
+  }
 
   if (publishData.error) throw new Error(`Facebook Publish Error: ${publishData.error.message}`);
 

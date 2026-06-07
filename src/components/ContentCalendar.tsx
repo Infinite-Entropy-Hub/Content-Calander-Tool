@@ -22,9 +22,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 export function ContentCalendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [posts, setPosts] = useState<any[]>([]);
-  const [selectedPost, setSelectedPost] = useState<any>(null);
+  const [selectedPost, setSelectedPost] = useState<any | null>(null);
   const [isPublishing, setIsPublishing] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  
+  // Custom Delete Dialog State
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteMediaChecked, setDeleteMediaChecked] = useState(true);
+  const [deletePostChecked, setDeletePostChecked] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchPosts = async () => {
     try {
@@ -57,49 +63,50 @@ export function ContentCalendar() {
     alert("Caption copied to clipboard!");
   };
 
-  const downloadMedia = () => {
-    if (!selectedPost?.media_url) return;
-    window.open(selectedPost.media_url, "_blank");
+  const downloadMedia = (url: string) => {
+    if (!url) return;
+    window.open(url, "_blank");
   };
 
-  const handleDelete = async () => {
-    if (!confirm("Are you sure you want to delete this post?")) return;
+  const executeDelete = async () => {
+    if (!selectedPost) return;
+    setIsDeleting(true);
     try {
-      const deleteMedia = confirm("Do you also want to permanently delete the attached media file from storage?");
-      
-      if (deleteMedia && selectedPost?.media_url && selectedPost.media_url.includes('supabase.co')) {
-        const parts = selectedPost.media_url.split('/media/');
-        if (parts.length === 2) {
-          const filePath = parts[1];
-          await supabase.storage.from('media').remove([filePath]);
+      if (deleteMediaChecked && selectedPost.media_urls && selectedPost.media_urls.length > 0) {
+        const filePaths = selectedPost.media_urls
+          .filter((url: string) => url.includes('supabase.co'))
+          .map((url: string) => {
+            const parts = url.split('/media/');
+            return parts.length === 2 ? parts[1] : null;
+          })
+          .filter(Boolean);
+        
+        if (filePaths.length > 0) {
+          await supabase.storage.from('media').remove(filePaths);
         }
       }
 
-      await supabase.from('posts').delete().eq('id', selectedPost.id);
-      setSelectedPost(null);
+      if (deletePostChecked) {
+        await supabase.from('posts').delete().eq('id', selectedPost.id);
+        setSelectedPost(null);
+      } else if (deleteMediaChecked && !deletePostChecked) {
+        // Just clear the media URLs from the post record
+        await supabase.from('posts').update({ media_urls: [] }).eq('id', selectedPost.id);
+        setSelectedPost({ ...selectedPost, media_urls: [] });
+      }
+
       fetchPosts();
+      setDeleteDialogOpen(false);
     } catch (error) {
       console.error(error);
     }
+    setIsDeleting(false);
   };
 
   const handleMarkDone = async () => {
-    const deleteMedia = confirm("Do you want to permanently delete the raw media file from storage to save space?");
-    
+    // We remove the native confirm per user request. We just mark it done.
     try {
-      let newMediaUrl = selectedPost.media_url;
-      
-      if (deleteMedia && selectedPost.media_url && selectedPost.media_url.includes('supabase.co')) {
-        // Extract file path from URL (naive approach for this example)
-        const parts = selectedPost.media_url.split('/media/');
-        if (parts.length === 2) {
-          const filePath = parts[1];
-          await supabase.storage.from('media').remove([filePath]);
-          newMediaUrl = null;
-        }
-      }
-
-      await supabase.from('posts').update({ status: 'posted', media_url: newMediaUrl }).eq('id', selectedPost.id);
+      await supabase.from('posts').update({ status: 'posted' }).eq('id', selectedPost.id);
       setSelectedPost(null);
       fetchPosts();
     } catch (error) {
@@ -282,13 +289,25 @@ export function ContentCalendar() {
           </DialogHeader>
           
           <div className="space-y-4 py-2">
-            {selectedPost?.media_url ? (
-              <div className="w-full max-h-[50vh] bg-black/50 rounded-xl overflow-hidden flex items-center justify-center relative border border-border/50">
-                {selectedPost.media_url.match(/\.(mp4|mov|webm)$/i) ? (
-                  <video src={selectedPost.media_url} controls className="max-w-full max-h-[50vh] object-contain" />
-                ) : (
-                  <img src={selectedPost.media_url} alt={selectedPost.title} className="max-w-full max-h-[50vh] object-contain" />
-                )}
+            {selectedPost?.media_urls && selectedPost.media_urls.length > 0 ? (
+              <div className="w-full flex gap-2 overflow-x-auto pb-2 snap-x">
+                {selectedPost.media_urls.map((url: string, index: number) => (
+                  <div key={index} className="w-full sm:min-w-[400px] h-64 bg-black/50 rounded-xl overflow-hidden flex items-center justify-center relative border border-border/50 shrink-0 snap-center">
+                    {url.match(/\.(mp4|mov|webm)$/i) ? (
+                      <video src={url} controls className="max-w-full max-h-full object-contain" onError={(e) => {
+                        const target = e.target as HTMLVideoElement;
+                        target.style.display = 'none';
+                        if (target.parentElement) {
+                          target.parentElement.innerHTML = '<div class="text-xs text-muted-foreground">Media no longer available in library</div>';
+                        }
+                      }} />
+                    ) : (
+                      <img src={url} alt={`Media ${index}`} className="max-w-full max-h-full object-contain" onError={(e) => {
+                        (e.target as HTMLImageElement).src = "https://placehold.co/400x300/1e1e1e/888888?text=Media+Unavailable";
+                      }} />
+                    )}
+                  </div>
+                ))}
               </div>
             ) : (
               <div className="w-full h-24 bg-muted/30 rounded-xl flex items-center justify-center border border-border/50 border-dashed text-muted-foreground text-xs">
@@ -306,8 +325,8 @@ export function ContentCalendar() {
               <Button onClick={copyCaption} variant="secondary" size="sm" className="flex-1 text-[11px] h-8 min-w-[70px]">
                 <Copy className="w-3.5 h-3.5 mr-1.5" /> Copy
               </Button>
-              {selectedPost?.media_url && (
-                <Button onClick={downloadMedia} variant="secondary" size="sm" className="flex-1 text-[11px] h-8 min-w-[70px]">
+              {selectedPost?.media_urls && selectedPost.media_urls.length > 0 && (
+                <Button onClick={() => downloadMedia(selectedPost.media_urls[0])} variant="secondary" size="sm" className="flex-1 text-[11px] h-8 min-w-[70px]">
                   <Download className="w-3.5 h-3.5 mr-1.5" /> Save
                 </Button>
               )}
@@ -316,15 +335,83 @@ export function ContentCalendar() {
                   <Send className="w-3.5 h-3.5 mr-1.5" /> {isPublishing ? "Wait..." : "Publish"}
                 </Button>
               )}
-              {selectedPost?.status !== 'published' && selectedPost?.status !== 'posted' && (
-                <Button onClick={handleMarkDone} size="sm" className="flex-1 bg-green-600 hover:bg-green-700 text-white text-[11px] h-8 min-w-[75px]">
-                  <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Done
-                </Button>
-              )}
-              <Button onClick={handleDelete} variant="destructive" size="sm" className="flex-1 text-[11px] h-8 min-w-[75px]">
+              
+              {/* Done Button logic fix */}
+              <Button 
+                onClick={handleMarkDone} 
+                disabled={selectedPost?.status === 'published' || selectedPost?.status === 'posted'}
+                size="sm" 
+                className={`flex-1 text-[11px] h-8 min-w-[75px] ${
+                  selectedPost?.status === 'published' || selectedPost?.status === 'posted' 
+                    ? "bg-green-500/20 text-green-400 cursor-not-allowed opacity-70" 
+                    : "bg-green-600 hover:bg-green-700 text-white"
+                }`}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> 
+                {selectedPost?.status === 'published' || selectedPost?.status === 'posted' ? "Completed" : "Done"}
+              </Button>
+
+              <Button onClick={() => setDeleteDialogOpen(true)} variant="destructive" size="sm" className="flex-1 text-[11px] h-8 min-w-[75px]">
                 <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Custom Delete Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[400px] bg-background/95 backdrop-blur-3xl border-border/50">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2 text-red-400">
+              <Trash2 className="w-5 h-5" /> Delete Entry
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-foreground/80">
+              How would you like to delete this item?
+            </p>
+            
+            <label className="flex items-start gap-3 cursor-pointer group">
+              <div className="mt-0.5">
+                <input 
+                  type="checkbox" 
+                  checked={deleteMediaChecked}
+                  onChange={(e) => setDeleteMediaChecked(e.target.checked)}
+                  className="w-4 h-4 rounded border-border/50 bg-background accent-red-500"
+                />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-sm font-semibold group-hover:text-red-400 transition-colors">Delete Media Only</span>
+                <span className="text-xs text-muted-foreground">Keep the post record for history, but permanently delete the media files from your storage bucket to save space.</span>
+              </div>
+            </label>
+
+            <label className="flex items-start gap-3 cursor-pointer group">
+              <div className="mt-0.5">
+                <input 
+                  type="checkbox" 
+                  checked={deletePostChecked}
+                  onChange={(e) => setDeletePostChecked(e.target.checked)}
+                  className="w-4 h-4 rounded border-border/50 bg-background accent-red-500"
+                />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-sm font-semibold group-hover:text-red-400 transition-colors">Delete Entire Post Record</span>
+                <span className="text-xs text-muted-foreground">Erase this post entirely from your content calendar.</span>
+              </div>
+            </label>
+          </div>
+          
+          <div className="flex justify-end gap-2 pt-2 border-t border-border/50">
+            <Button variant="ghost" onClick={() => setDeleteDialogOpen(false)} disabled={isDeleting}>Cancel</Button>
+            <Button 
+              variant="destructive" 
+              onClick={executeDelete} 
+              disabled={isDeleting || (!deleteMediaChecked && !deletePostChecked)}
+            >
+              {isDeleting ? "Deleting..." : "Confirm Delete"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

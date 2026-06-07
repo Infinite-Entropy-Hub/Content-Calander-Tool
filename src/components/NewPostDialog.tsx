@@ -39,7 +39,7 @@ export function NewPostDialog({ onPostAdded }: { onPostAdded?: () => void }) {
   const [postTime, setPostTime] = useState(format(new Date(), "HH:mm"));
   
   const [inputType, setInputType] = useState<"upload" | "link">("upload");
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [rawLink, setRawLink] = useState("");
   
   const [crossPostYT, setCrossPostYT] = useState(false);
@@ -66,8 +66,8 @@ export function NewPostDialog({ onPostAdded }: { onPostAdded?: () => void }) {
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+    if (e.target.files && e.target.files.length > 0) {
+      setFiles(Array.from(e.target.files));
     }
   };
 
@@ -84,24 +84,30 @@ export function NewPostDialog({ onPostAdded }: { onPostAdded?: () => void }) {
         return;
       }
 
-      let finalMediaUrl = rawLink;
+      let finalMediaUrls: string[] = [];
 
-      if (inputType === "upload" && file) {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Math.random()}.${fileExt}`;
-        const filePath = `${session.user.id}/${fileName}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from('media')
-          .upload(filePath, file);
-
-        if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('media')
-          .getPublicUrl(filePath);
+      if (inputType === "upload" && files.length > 0) {
+        const uploadPromises = files.map(async (fileObj) => {
+          const fileExt = fileObj.name.split('.').pop();
+          const fileName = `${Math.random()}.${fileExt}`;
+          const filePath = `${session.user.id}/${fileName}`;
           
-        finalMediaUrl = publicUrl;
+          const { error: uploadError } = await supabase.storage
+            .from('media')
+            .upload(filePath, fileObj);
+
+          if (uploadError) throw uploadError;
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('media')
+            .getPublicUrl(filePath);
+            
+          return publicUrl;
+        });
+
+        finalMediaUrls = await Promise.all(uploadPromises);
+      } else if (rawLink) {
+        finalMediaUrls = [rawLink];
       }
 
       // Main Post Insert
@@ -114,7 +120,7 @@ export function NewPostDialog({ onPostAdded }: { onPostAdded?: () => void }) {
         platform,
         post_format: postFormat,
         status: publishStatus,
-        media_url: finalMediaUrl,
+        media_urls: finalMediaUrls,
         user_id: session.user.id,
         scheduled_for: scheduledFor,
       };
@@ -168,7 +174,7 @@ export function NewPostDialog({ onPostAdded }: { onPostAdded?: () => void }) {
   const resetForm = () => {
     setTitle("");
     setDescription("");
-    setFile(null);
+    setFiles([]);
     setRawLink("");
     setCrossPostYT(false);
     setCrossPostFB(false);
@@ -313,17 +319,20 @@ export function NewPostDialog({ onPostAdded }: { onPostAdded?: () => void }) {
                 <div className="border border-dashed border-border/60 rounded-xl p-4 flex flex-col items-center justify-center bg-card/30 hover:bg-card/60 transition-colors relative cursor-pointer overflow-hidden group min-h-[100px]">
                   <input 
                     type="file" 
+                    multiple
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
                     onChange={handleFileChange}
                   />
                   <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                   
-                  {file ? (
+                  {files.length > 0 ? (
                     <div className="text-center z-20 flex flex-col items-center">
                       <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center mb-2">
                         <UploadCloud className="h-4 w-4 text-green-400" />
                       </div>
-                      <p className="text-xs font-semibold text-foreground truncate max-w-[200px]">{file.name}</p>
+                      <p className="text-xs font-semibold text-foreground truncate max-w-[200px]">
+                        {files.length === 1 ? files[0].name : `${files.length} files selected`}
+                      </p>
                       <p className="text-[10px] text-green-400 mt-1">Ready for Storage</p>
                     </div>
                   ) : (

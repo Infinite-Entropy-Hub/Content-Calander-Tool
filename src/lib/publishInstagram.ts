@@ -40,30 +40,66 @@ export async function publishToInstagram(postId: string, userId: string) {
   if (!igUserId) throw new Error("No Instagram Business Account linked to this Facebook Page.");
 
   // 5. Meta API: Create Media Container
-  const isVideo = post.media_url.match(/\.(mp4|mov|webm)$/i);
-  let containerUrl = `https://graph.facebook.com/v19.0/${igUserId}/media?access_token=${igToken}`;
-  
-  if (post.post_format === 'story') {
-    containerUrl += `&media_type=STORIES`;
-    if (isVideo) {
-      containerUrl += `&video_url=${encodeURIComponent(post.media_url)}`;
-    } else {
-      containerUrl += `&image_url=${encodeURIComponent(post.media_url)}`;
+  let creationId = null;
+
+  if (post.media_urls && post.media_urls.length > 1) {
+    // --- CAROUSEL LOGIC ---
+    const childrenIds = [];
+    
+    // Create an item container for each media URL
+    for (const url of post.media_urls) {
+      const isVideo = url.match(/\.(mp4|mov|webm)$/i);
+      let itemUrl = `https://graph.facebook.com/v19.0/${igUserId}/media?access_token=${igToken}&is_carousel_item=true`;
+      
+      if (isVideo) {
+        itemUrl += `&media_type=REELS&video_url=${encodeURIComponent(url)}`;
+      } else {
+        itemUrl += `&image_url=${encodeURIComponent(url)}`;
+      }
+
+      const itemRes = await fetch(itemUrl, { method: "POST" });
+      const itemData = await itemRes.json();
+      if (itemData.error) throw new Error(`Meta API Carousel Item Error: ${itemData.error.message}`);
+      
+      childrenIds.push(itemData.id);
     }
-  } else if (isVideo) {
-    containerUrl += `&media_type=REELS&video_url=${encodeURIComponent(post.media_url)}`;
-    if (post.description) containerUrl += `&caption=${encodeURIComponent(post.description)}`;
+
+    // Now create the main Carousel container
+    let carouselUrl = `https://graph.facebook.com/v19.0/${igUserId}/media?access_token=${igToken}&media_type=CAROUSEL&children=${childrenIds.join(',')}`;
+    if (post.description) carouselUrl += `&caption=${encodeURIComponent(post.description)}`;
+
+    const createContainerRes = await fetch(carouselUrl, { method: "POST" });
+    const createContainerData = await createContainerRes.json();
+    if (createContainerData.error) throw new Error(`Meta API Carousel Container Error: ${createContainerData.error.message}`);
+    
+    creationId = createContainerData.id;
+
   } else {
-    containerUrl += `&image_url=${encodeURIComponent(post.media_url)}`;
-    if (post.description) containerUrl += `&caption=${encodeURIComponent(post.description)}`;
+    // --- SINGLE MEDIA LOGIC ---
+    const mediaUrl = post.media_urls && post.media_urls.length > 0 ? post.media_urls[0] : post.media_url;
+    if (!mediaUrl) throw new Error("No media attached to post");
+
+    const isVideo = mediaUrl.match(/\.(mp4|mov|webm)$/i);
+    let containerUrl = `https://graph.facebook.com/v19.0/${igUserId}/media?access_token=${igToken}`;
+    
+    if (post.post_format === 'story') {
+      containerUrl += `&media_type=STORIES`;
+      if (isVideo) containerUrl += `&video_url=${encodeURIComponent(mediaUrl)}`;
+      else containerUrl += `&image_url=${encodeURIComponent(mediaUrl)}`;
+    } else if (isVideo) {
+      containerUrl += `&media_type=REELS&video_url=${encodeURIComponent(mediaUrl)}`;
+      if (post.description) containerUrl += `&caption=${encodeURIComponent(post.description)}`;
+    } else {
+      containerUrl += `&image_url=${encodeURIComponent(mediaUrl)}`;
+      if (post.description) containerUrl += `&caption=${encodeURIComponent(post.description)}`;
+    }
+
+    const createContainerRes = await fetch(containerUrl, { method: "POST" });
+    const createContainerData = await createContainerRes.json();
+    if (createContainerData.error) throw new Error(`Meta API Container Error: ${createContainerData.error.message}`);
+    
+    creationId = createContainerData.id;
   }
-
-  const createContainerRes = await fetch(containerUrl, { method: "POST" });
-  const createContainerData = await createContainerRes.json();
-
-  if (createContainerData.error) throw new Error(`Meta API Container Error: ${createContainerData.error.message}`);
-  
-  const creationId = createContainerData.id;
 
   // 6. Meta API: Poll
   let isReady = false;
