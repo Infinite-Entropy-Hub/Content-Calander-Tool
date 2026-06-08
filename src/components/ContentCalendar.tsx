@@ -140,13 +140,30 @@ export function ContentCalendar() {
   };
 
   const updateKanbanStatus = async (newStatus: string) => {
+    if (!selectedPost) return;
     try {
       await supabase.from('posts').update({ kanban_status: newStatus }).eq('id', selectedPost.id);
-      setSelectedPost({...selectedPost, kanban_status: newStatus});
+      setSelectedPost({ ...selectedPost, kanban_status: newStatus });
       fetchPosts();
-      toast.success("Status updated!");
-    } catch(e) {
+      toast.success("Status updated");
+    } catch (err) {
       toast.error("Failed to update status");
+    }
+  };
+
+  const updateWorkReminder = async (val: string) => {
+    if (!selectedPost) return;
+    try {
+      const isoDate = val ? new Date(val).toISOString() : null;
+      await supabase.from('posts').update({ 
+        work_reminder_for: isoDate,
+        work_reminder_sent: false
+      }).eq('id', selectedPost.id);
+      setSelectedPost({ ...selectedPost, work_reminder_for: isoDate });
+      fetchPosts();
+      toast.success("Reminder updated");
+    } catch (e) {
+      toast.error("Failed to update reminder");
     }
   };
 
@@ -316,6 +333,14 @@ export function ContentCalendar() {
                       </span>
                       {post.kanban_status === 'published' && <CheckCircle2 className="w-3 h-3 text-green-500" />}
                     </div>
+                    {(post.destinations?.[0]?.post_format || post.scheduled_for) && (
+                      <div className="flex justify-between items-center px-1 pb-0.5 border-t border-border/20 mt-1 pt-1">
+                        <span className="text-[8px] font-medium text-muted-foreground uppercase">{post.destinations?.[0]?.post_format || "post"}</span>
+                        {post.scheduled_for && (
+                          <span className="text-[8px] font-medium text-muted-foreground">{format(new Date(post.scheduled_for), "h:mm a")}</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -524,18 +549,6 @@ export function ContentCalendar() {
                 </div>
               )}
 
-              {selectedPost?.work_reminder_for && (
-                <div className="space-y-1 bg-pink-500/10 p-3.5 rounded-xl border border-pink-500/20 shrink-0">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-pink-500/80">Telegram Work Reminder</span>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Clock className="w-3.5 h-3.5 text-pink-400" />
-                    <span className="text-xs text-pink-200/90 font-medium">
-                      {format(new Date(selectedPost.work_reminder_for), "MMM d, yyyy 'at' h:mm a")}
-                    </span>
-                  </div>
-                </div>
-              )}
-
               {selectedPost?.error_log && (
                 <div className={`space-y-1 p-3.5 rounded-xl border shrink-0 ${selectedPost.status === 'failed' ? 'bg-red-500/10 border-red-500/20' : 'bg-green-500/10 border-green-500/20'}`}>
                   <span className={`text-[10px] font-bold uppercase tracking-widest ${selectedPost.status === 'failed' ? 'text-red-400' : 'text-green-400'}`}>
@@ -587,6 +600,16 @@ export function ContentCalendar() {
               <div className="flex flex-col gap-3 pt-4 border-t border-border/50 shrink-0">
                 {errorMsg && <div className="w-full px-3 py-2 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-md font-medium">{errorMsg}</div>}
                 
+                <div className="bg-background/50 border border-border/50 rounded-xl p-3 flex justify-between items-center mt-2">
+                  <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> Work Reminder</span>
+                  <input 
+                    type="datetime-local" 
+                    value={selectedPost?.work_reminder_for ? new Date(new Date(selectedPost.work_reminder_for).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ""}
+                    onChange={(e) => updateWorkReminder(e.target.value)}
+                    className="bg-muted text-[10px] font-bold px-2 py-1.5 rounded-lg border-0 focus:ring-2 focus:ring-pink-500 cursor-pointer w-[140px]"
+                  />
+                </div>
+
                 <div className="bg-background/50 border border-border/50 rounded-xl p-3 flex justify-between items-center">
                   <span className="text-xs font-semibold text-muted-foreground">Kanban Status</span>
                   <select 
