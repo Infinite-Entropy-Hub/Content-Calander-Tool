@@ -208,12 +208,10 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn, initialDate }
 
       let kStatus = kanbanStatus;
       if (publishStatus === 'published') kStatus = 'published';
-      else if (publishStatus === 'scheduled') kStatus = 'scheduled';
 
       let workReminderFor = null;
       if (setReminder && kStatus !== 'published' && kStatus !== 'scheduled') {
         workReminderFor = new Date(`${reminderDate}T${reminderTime}:00`).toISOString();
-        if (kStatus === 'idea') kStatus = 'implementation';
       }
 
       const postData = {

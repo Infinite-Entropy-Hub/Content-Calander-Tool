@@ -48,16 +48,13 @@ export async function GET(req: Request) {
           const tgEnabled = profile?.telegram_enabled;
 
           if (tgEnabled && tgBotToken && tgChatId) {
-            const msg = `🛠️ <b>Time to Work on Post!</b>\n\n<b>Title:</b> ${post.title}\n<b>Current Phase:</b> ${post.kanban_status.toUpperCase()}\n<b>Target Publish Date:</b> ${post.scheduled_for ? new Date(post.scheduled_for).toLocaleString() : 'Not Set'}\n\n<b>Notes:</b> ${post.notes || 'None'}\n\nWhat do you want to do?`;
+            const msg = `🛠️ <b>Time to Work on Post!</b>\n\n<b>Title:</b> ${post.title}\n<b>Current Phase:</b> ${post.kanban_status.toUpperCase()}\n<b>Target Publish Date:</b> ${post.scheduled_for ? new Date(post.scheduled_for).toLocaleString() : 'Not Set'}\n\n<b>Notes:</b> ${post.notes || 'None'}\n\nNeed more time to work on this?`;
             
             const inline_keyboard = [
               [
-                { text: '🤖 Schedule Automation', callback_data: `action_schedule_auto_${post.id}` },
-                { text: '✍️ Schedule Manual', callback_data: `action_schedule_manual_${post.id}` }
-              ],
-              [
-                { text: '⏰ Remind in 1h', callback_data: `action_work_remind_60_${post.id}` },
-                { text: '⏰ Remind in 2h', callback_data: `action_work_remind_120_${post.id}` }
+                { text: '⏰ Remind in 1 hr', callback_data: `action_work_remind_60_${post.id}` },
+                { text: '⏰ Remind in 2 hrs', callback_data: `action_work_remind_120_${post.id}` },
+                { text: '⏰ Remind in 6 hrs', callback_data: `action_work_remind_360_${post.id}` }
               ]
             ];
 

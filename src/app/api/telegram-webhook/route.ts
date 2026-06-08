@@ -46,28 +46,6 @@ export async function POST(req: Request) {
             replyText = `✅ <b>Awesome!</b>\nMarked as published in your Content Calendar.`;
           }
         }
-        else if (data.startsWith('action_schedule_auto_')) {
-          const postId = data.replace('action_schedule_auto_', '');
-          if (postId) {
-            await supabaseAdmin.from('posts').update({ 
-              kanban_status: 'scheduled',
-              is_scheduled: true,
-              auto_publish: true
-            }).eq('id', postId);
-            replyText = `🤖 <b>Automation Scheduled!</b>\nMoved to the Scheduled phase with Auto-Publish ON.`;
-          }
-        }
-        else if (data.startsWith('action_schedule_manual_')) {
-          const postId = data.replace('action_schedule_manual_', '');
-          if (postId) {
-            await supabaseAdmin.from('posts').update({ 
-              kanban_status: 'scheduled',
-              is_scheduled: true,
-              auto_publish: false
-            }).eq('id', postId);
-            replyText = `✍️ <b>Manual Scheduling Confirmed!</b>\nMoved to the Scheduled phase. You will receive a notification to post when it's time.`;
-          }
-        }
         else if (data.startsWith('action_work_remind_')) {
           const parts = data.replace('action_work_remind_', '').split('_');
           const value = parseInt(parts[0]);
