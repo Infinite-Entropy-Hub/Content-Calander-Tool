@@ -132,10 +132,16 @@ export async function publishToInstagram(postId: string, userId: string) {
   // 8. Fetch the actual permalink_url
   let finalIdOrUrl = publishData.id;
   try {
-    const mediaRes = await fetch(`https://graph.facebook.com/v19.0/${publishData.id}?fields=permalink_url&access_token=${igToken}`);
+    const mediaRes = await fetch(`https://graph.facebook.com/v19.0/${publishData.id}?fields=permalink&access_token=${igToken}`);
     const mediaData = await mediaRes.json();
-    if (mediaData.permalink_url) {
-      finalIdOrUrl = mediaData.permalink_url;
+    if (mediaData.permalink) {
+      finalIdOrUrl = mediaData.permalink;
+    } else {
+       // fallback, maybe wait a bit and try again?
+       await new Promise(resolve => setTimeout(resolve, 2000));
+       const retryRes = await fetch(`https://graph.facebook.com/v19.0/${publishData.id}?fields=permalink&access_token=${igToken}`);
+       const retryData = await retryRes.json();
+       if (retryData.permalink) finalIdOrUrl = retryData.permalink;
     }
   } catch (e) {
     console.error("Could not fetch Instagram permalink", e);

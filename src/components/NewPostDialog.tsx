@@ -503,7 +503,6 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn, initialDate }
                     <span className="text-[10px] text-muted-foreground pl-5">Send me an Email & Telegram to post natively.</span>
                   </label>
                 </div>
-                </div>
               )}
 
               {kanbanStatus !== 'scheduled' && kanbanStatus !== 'published' && (

@@ -13,7 +13,7 @@ import {
   startOfWeek,
   endOfWeek,
 } from "date-fns";
-import { ChevronLeft, ChevronRight, Download, Copy, Trash2, CheckCircle2, Send, ExternalLink, Edit3, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Copy, Trash2, CheckCircle2, Send, ExternalLink, Edit3, Plus, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NewPostDialog, PLATFORMS } from "./NewPostDialog";
 import { toast } from "sonner";
