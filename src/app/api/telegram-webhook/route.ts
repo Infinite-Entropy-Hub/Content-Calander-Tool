@@ -47,17 +47,28 @@ export async function POST(req: Request) {
           }
         }
         else if (data.startsWith('action_work_remind_')) {
-          const parts = data.replace('action_work_remind_', '').split('_');
-          const value = parseInt(parts[0]);
-          const postId = parts.slice(1).join('_');
-          
-          if (postId && value) {
-            const futureDate = new Date(Date.now() + value * 60000).toISOString();
-            await supabaseAdmin.from('posts').update({ 
-              work_reminder_for: futureDate,
-              work_reminder_sent: false
-            }).eq('id', postId);
-            replyText = `⏰ <b>Work Reminder Snoozed!</b>\nI will remind you to work on this post in ${value} minutes.`;
+          try {
+            const parts = data.replace('action_work_remind_', '').split('_');
+            const value = parseInt(parts[0]);
+            const postId = parts.slice(1).join('_');
+            
+            if (postId && value) {
+              const futureDate = new Date(Date.now() + value * 60000).toISOString();
+              const { error } = await supabaseAdmin.from('posts').update({ 
+                work_reminder_for: futureDate,
+                work_reminder_sent: false
+              }).eq('id', postId);
+              
+              if (error) {
+                replyText = `❌ Supabase Error: ${error.message}`;
+              } else {
+                replyText = `⏰ <b>Work Reminder Snoozed!</b>\nI will remind you to work on this post in ${value} minutes.`;
+              }
+            } else {
+              replyText = `❌ Data Error: parsed value=${value}, postId=${postId} from data=${data}`;
+            }
+          } catch (e: any) {
+            replyText = `❌ Catch Error: ${e.message}`;
           }
         }
 
