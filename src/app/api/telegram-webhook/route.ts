@@ -81,6 +81,10 @@ export async function POST(req: Request) {
           });
         }
 
+        if (!replyText) {
+          replyText = `❌ DEBUG: Unhandled button click!\nData: ${data}`;
+        }
+
         if (replyText && tgBotToken) {
           // Send a new message to confirm the action, and edit the old message to remove buttons
           await fetch(`https://api.telegram.org/bot${tgBotToken}/sendMessage`, {
