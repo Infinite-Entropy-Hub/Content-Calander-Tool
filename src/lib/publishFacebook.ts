@@ -15,6 +15,9 @@ export async function publishToFacebook(postId: string, userId: string) {
 
   if (postError || !post) throw new Error("Post not found");
 
+  const destination = post.destinations?.find((d: any) => d.platform === 'facebook');
+  const postFormat = destination?.post_format || 'post';
+
   // 2. Fetch Keys
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
@@ -73,7 +76,9 @@ export async function publishToFacebook(postId: string, userId: string) {
     const isVideo = mediaUrl.match(/\.(mp4|mov|webm)$/i);
     let publishUrl = "";
     
-    if (isVideo) {
+    if (postFormat === 'story' && !isVideo) {
+      publishUrl = `https://graph.facebook.com/v19.0/${pageId}/photo_stories?url=${encodeURIComponent(mediaUrl)}&access_token=${pageToken}`;
+    } else if (isVideo) {
       publishUrl = `https://graph.facebook.com/v19.0/${pageId}/videos?file_url=${encodeURIComponent(mediaUrl)}&description=${encodeURIComponent(post.description || "")}&access_token=${pageToken}`;
     } else {
       publishUrl = `https://graph.facebook.com/v19.0/${pageId}/photos?url=${encodeURIComponent(mediaUrl)}&message=${encodeURIComponent(post.description || "")}&access_token=${pageToken}`;

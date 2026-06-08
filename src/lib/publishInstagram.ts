@@ -15,6 +15,9 @@ export async function publishToInstagram(postId: string, userId: string) {
 
   if (postError || !post) throw new Error("Post not found");
 
+  const destination = post.destinations?.find((d: any) => d.platform === 'instagram');
+  const postFormat = destination?.post_format || 'post';
+
   // 2. Fetch Keys
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
@@ -82,11 +85,11 @@ export async function publishToInstagram(postId: string, userId: string) {
     const isVideo = mediaUrl.match(/\.(mp4|mov|webm)$/i);
     let containerUrl = `https://graph.facebook.com/v19.0/${igUserId}/media?access_token=${igToken}`;
     
-    if (post.post_format === 'story') {
+    if (postFormat === 'story') {
       containerUrl += `&media_type=STORIES`;
       if (isVideo) containerUrl += `&video_url=${encodeURIComponent(mediaUrl)}`;
       else containerUrl += `&image_url=${encodeURIComponent(mediaUrl)}`;
-    } else if (isVideo) {
+    } else if (postFormat === 'reel' || isVideo) {
       containerUrl += `&media_type=REELS&video_url=${encodeURIComponent(mediaUrl)}`;
       if (post.description) containerUrl += `&caption=${encodeURIComponent(post.description)}`;
     } else {

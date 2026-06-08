@@ -673,7 +673,7 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn, initialDate }
               />
             </div>
             
-            {platform === "youtube" && (
+            {['shorts', 'reel', 'full_video', 'story'].includes(postFormat) && (
               <div className="space-y-2">
                 <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Thumbnail Image URL (Optional)</Label>
                 <Input 
