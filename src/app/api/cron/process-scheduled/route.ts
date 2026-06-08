@@ -78,7 +78,7 @@ export async function GET(req: Request) {
       .from('posts')
       .select('*')
       .eq('is_scheduled', true)
-      .eq('kanban_status', 'scheduled')
+      .neq('kanban_status', 'published')
       .lte('scheduled_for', now);
 
     if (fetchError) {

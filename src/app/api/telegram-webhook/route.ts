@@ -61,25 +61,36 @@ export async function POST(req: Request) {
           }
         }
 
-        if (replyText && tgBotToken) {
-          await fetch(`https://api.telegram.org/bot${tgBotToken}/editMessageText`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              chat_id: chatId,
-              message_id: messageId,
-              text: replyText,
-              parse_mode: 'HTML'
-            })
-          });
-        }
-
-        // Always answer callback query to stop loading spinner on the button
+        // Always answer callback query FIRST to stop loading spinner on the button
         if (tgBotToken) {
           await fetch(`https://api.telegram.org/bot${tgBotToken}/answerCallbackQuery`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ callback_query_id: callbackQueryId })
+          });
+        }
+
+        if (replyText && tgBotToken) {
+          // Send a new message to confirm the action, and edit the old message to remove buttons
+          await fetch(`https://api.telegram.org/bot${tgBotToken}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: chatId,
+              text: replyText,
+              parse_mode: 'HTML'
+            })
+          });
+          
+          // Optionally clear the buttons on the old message so they can't be clicked again
+          await fetch(`https://api.telegram.org/bot${tgBotToken}/editMessageReplyMarkup`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: chatId,
+              message_id: messageId,
+              reply_markup: { inline_keyboard: [] }
+            })
           });
         }
       }
