@@ -14,6 +14,8 @@ type MediaFile = {
     mimetype: string;
   };
   url: string;
+  source: 'supabase' | 'cloudflare';
+  r2Key?: string;
 };
 
 export function MediaLibrary() {
@@ -28,28 +30,18 @@ export function MediaLibrary() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const { data, error } = await supabase.storage
-        .from("media")
-        .list(session.user.id, {
-          limit: 100,
-          offset: 0,
-          sortBy: { column: 'created_at', order: 'desc' },
+      try {
+        const res = await fetch('/api/media/list', {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`
+          }
         });
-
-      if (data) {
-        const fileList = data
-          .filter(f => f.name !== ".emptyFolderPlaceholder")
-          .map(f => {
-            const { data: publicUrlData } = supabase.storage
-              .from("media")
-              .getPublicUrl(`${session.user.id}/${f.name}`);
-              
-            return {
-              ...f,
-              url: publicUrlData.publicUrl
-            };
-          }) as MediaFile[];
-        setFiles(fileList);
+        const data = await res.json();
+        if (res.ok && data.media) {
+          setFiles(data.media);
+        }
+      } catch (e) {
+        console.error(e);
       }
       setLoading(false);
     };
@@ -97,13 +89,25 @@ export function MediaLibrary() {
                   setIsDeleting(true);
                   const { data: { session } } = await supabase.auth.getSession();
                   if (session) {
-                    const paths = selectedFiles.map(name => `${session.user.id}/${name}`);
-                    const { error } = await supabase.storage.from("media").remove(paths);
-                    if (!error) {
-                      setFiles(files.filter(f => !selectedFiles.includes(f.name)));
-                      setSelectedFiles([]);
-                    } else {
-                      alert("Error deleting files: " + error.message);
+                    const filesToDelete = files.filter(f => selectedFiles.includes(f.name));
+                    try {
+                      const res = await fetch('/api/media/delete', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${session.access_token}`
+                        },
+                        body: JSON.stringify({ files: filesToDelete })
+                      });
+                      const data = await res.json();
+                      if (res.ok) {
+                        setFiles(files.filter(f => !selectedFiles.includes(f.name)));
+                        setSelectedFiles([]);
+                      } else {
+                        alert("Error deleting files: " + data.error);
+                      }
+                    } catch (e) {
+                      console.error(e);
                     }
                   }
                   setIsDeleting(false);
@@ -125,7 +129,7 @@ export function MediaLibrary() {
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {files.map((file) => {
-            const isVideo = file.metadata?.mimetype?.includes("video") || file.name.endsWith(".mp4") || file.name.endsWith(".mov");
+            const isVideo = file.metadata?.mimetype?.includes("video") || file.name.endsWith(".mp4") || file.name.endsWith(".mov") || file.name.endsWith(".webm");
             return (
               <div key={file.id} className={`group relative rounded-xl border transition-colors overflow-hidden ${selectedFiles.includes(file.name) ? 'border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.2)]' : 'border-border/50 bg-card/40 hover:border-indigo-500/50'}`}>
                 <div className="absolute top-2 left-2 z-20">
@@ -141,6 +145,15 @@ export function MediaLibrary() {
                       }
                     }}
                   />
+                </div>
+                <div className="absolute top-2 right-2 z-20">
+                  <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${
+                    file.source === 'cloudflare' 
+                      ? 'bg-[#F38020]/20 text-[#F38020] border border-[#F38020]/50'
+                      : 'bg-[#3ECF8E]/20 text-[#3ECF8E] border border-[#3ECF8E]/50'
+                  }`}>
+                    {file.source === 'cloudflare' ? 'Cloudflare R2' : 'Supabase'}
+                  </span>
                 </div>
                 <div 
                   className="aspect-square bg-muted relative cursor-pointer"
@@ -186,3 +199,4 @@ export function MediaLibrary() {
     </div>
   );
 }
+
