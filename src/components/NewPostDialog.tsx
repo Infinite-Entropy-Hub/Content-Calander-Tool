@@ -222,21 +222,58 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn, initialDate }
           if (item.type === 'url') return item.url;
           
           const fileObj = item.file;
-          const fileExt = fileObj.name.split('.').pop();
-          const fileName = `${Math.random()}.${fileExt}`;
-          const filePath = `${session.user.id}/${fileName}`;
-          
-          const { error: uploadError } = await supabase.storage
-            .from('media')
-            .upload(filePath, fileObj);
+          const fileSize = fileObj.size;
+          const MAX_SUPABASE_SIZE = 45 * 1024 * 1024; // 45MB
 
-          if (uploadError) throw uploadError;
+          if (fileSize > MAX_SUPABASE_SIZE) {
+            // Get Presigned URL for Cloudflare R2
+            const res = await fetch('/api/upload/presign-r2', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`
+              },
+              body: JSON.stringify({
+                filename: fileObj.name,
+                contentType: fileObj.type || 'application/octet-stream'
+              })
+            });
 
-          const { data: { publicUrl } } = supabase.storage
-            .from('media')
-            .getPublicUrl(filePath);
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to get R2 upload URL');
+
+            // Upload directly to R2 using PUT
+            const uploadRes = await fetch(data.presignedUrl, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': fileObj.type || 'application/octet-stream'
+              },
+              body: fileObj
+            });
+
+            if (!uploadRes.ok) {
+              throw new Error(`Failed to upload to Cloudflare R2: ${uploadRes.statusText}`);
+            }
+
+            return data.publicUrl;
+          } else {
+            // Standard Supabase Upload
+            const fileExt = fileObj.name.split('.').pop();
+            const fileName = `${Math.random()}.${fileExt}`;
+            const filePath = `${session.user.id}/${fileName}`;
             
-          return publicUrl;
+            const { error: uploadError } = await supabase.storage
+              .from('media')
+              .upload(filePath, fileObj);
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+              .from('media')
+              .getPublicUrl(filePath);
+              
+            return publicUrl;
+          }
         });
 
         finalMediaUrls = await Promise.all(uploadPromises);
