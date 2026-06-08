@@ -55,7 +55,7 @@ export async function publishToInstagram(postId: string, userId: string) {
       let itemUrl = `https://graph.facebook.com/v19.0/${igUserId}/media?access_token=${igToken}&is_carousel_item=true`;
       
       if (isVideo) {
-        itemUrl += `&media_type=REELS&video_url=${encodeURIComponent(url)}`;
+        itemUrl += `&media_type=VIDEO&video_url=${encodeURIComponent(url)}`;
       } else {
         itemUrl += `&image_url=${encodeURIComponent(url)}`;
       }

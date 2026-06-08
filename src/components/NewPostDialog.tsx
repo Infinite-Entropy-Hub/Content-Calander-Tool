@@ -13,7 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, UploadCloud, Sparkles, Link as LinkIcon, CalendarIcon, Clock, CalendarClock } from "lucide-react";
+import { Plus, UploadCloud, Sparkles, Link as LinkIcon, CalendarIcon, Clock, CalendarClock, ArrowLeft, ArrowRight, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { format } from "date-fns";
 import Image from "next/image";
@@ -31,6 +31,8 @@ export const PLATFORMS = [
 
 import { useEffect } from "react";
 
+type MediaItem = { id: string; type: 'file'; file: File; url: string; name: string } | { id: string; type: 'url'; url: string; name: string };
+
 export function NewPostDialog({ onPostAdded, editPost, triggerBtn, initialDate }: { onPostAdded?: () => void; editPost?: any; triggerBtn?: React.ReactNode; initialDate?: Date }) {
   const [open, setOpen] = useState(false);
   const [platform, setPlatform] = useState<string>("instagram");
@@ -45,7 +47,7 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn, initialDate }
   const [notes, setNotes] = useState("");
   
   const [inputType, setInputType] = useState<"upload" | "link">("upload");
-  const [files, setFiles] = useState<File[]>([]);
+  const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [rawLink, setRawLink] = useState("");
 
   const [kanbanStatus, setKanbanStatus] = useState("idea");
@@ -100,6 +102,17 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn, initialDate }
       }
       setThumbnailUrl(editPost.thumbnail_url || "");
       
+      if (editPost.media_urls && Array.isArray(editPost.media_urls)) {
+        setMediaItems(editPost.media_urls.map((url: string, i: number) => ({
+          id: `url-${i}-${Date.now()}`,
+          type: 'url',
+          url,
+          name: url.split('/').pop() || `Image ${i + 1}`
+        })));
+      } else {
+        setMediaItems([]);
+      }
+      
       setKanbanStatus(editPost.kanban_status || "idea");
       if (editPost.work_reminder_for) {
         setSetReminder(true);
@@ -139,8 +152,41 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn, initialDate }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setFiles(Array.from(e.target.files));
+      const newItems: MediaItem[] = Array.from(e.target.files).map((f, i) => ({
+        id: `file-${Date.now()}-${i}`,
+        type: 'file',
+        file: f,
+        url: URL.createObjectURL(f),
+        name: f.name
+      }));
+      setMediaItems(prev => [...prev, ...newItems]);
     }
+  };
+
+  const moveMediaLeft = (index: number) => {
+    if (index === 0) return;
+    setMediaItems(prev => {
+      const newItems = [...prev];
+      const temp = newItems[index - 1];
+      newItems[index - 1] = newItems[index];
+      newItems[index] = temp;
+      return newItems;
+    });
+  };
+
+  const moveMediaRight = (index: number) => {
+    if (index === mediaItems.length - 1) return;
+    setMediaItems(prev => {
+      const newItems = [...prev];
+      const temp = newItems[index + 1];
+      newItems[index + 1] = newItems[index];
+      newItems[index] = temp;
+      return newItems;
+    });
+  };
+
+  const removeMedia = (index: number) => {
+    setMediaItems(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSave = async (publishStatus: "scheduled" | "published" | "draft" = "scheduled") => {
@@ -157,8 +203,11 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn, initialDate }
       }
 
       // Validation: YouTube Shorts cannot be images
-      if ((platform === "youtube" || crossPostYT) && files.length > 0) {
-        const hasImage = files.some(f => f.type.startsWith('image/'));
+      if ((platform === "youtube" || crossPostYT) && mediaItems.length > 0) {
+        const hasImage = mediaItems.some(item => {
+          if (item.type === 'file') return item.file.type.startsWith('image/');
+          return item.url.match(/\.(jpg|jpeg|png|webp|gif)$/i);
+        });
         if (hasImage) {
           setErrorMsg("YouTube Shorts must be video files, not static images.");
           setIsSubmitting(false);
@@ -168,8 +217,11 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn, initialDate }
 
       let finalMediaUrls: string[] = [];
 
-      if (inputType === "upload" && files.length > 0) {
-        const uploadPromises = files.map(async (fileObj) => {
+      if (inputType === "upload" && mediaItems.length > 0) {
+        const uploadPromises = mediaItems.map(async (item) => {
+          if (item.type === 'url') return item.url;
+          
+          const fileObj = item.file;
           const fileExt = fileObj.name.split('.').pop();
           const fileName = `${Math.random()}.${fileExt}`;
           const filePath = `${session.user.id}/${fileName}`;
@@ -190,8 +242,6 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn, initialDate }
         finalMediaUrls = await Promise.all(uploadPromises);
       } else if (rawLink) {
         finalMediaUrls = [rawLink];
-      } else if (editPost && editPost.media_urls) {
-        finalMediaUrls = editPost.media_urls; // Keep existing media if no new files uploaded
       }
 
       // Main Post Insert
@@ -311,7 +361,7 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn, initialDate }
   const resetForm = () => {
     setTitle("");
     setDescription("");
-    setFiles([]);
+    setMediaItems([]);
     setRawLink("");
     setRawLink("");
     setCrossPostFB(false);
@@ -614,31 +664,51 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn, initialDate }
               </div>
 
               {inputType === "upload" ? (
-                <div className="border border-dashed border-border/60 rounded-xl p-4 flex flex-col items-center justify-center bg-card/30 hover:bg-card/60 transition-colors relative cursor-pointer overflow-hidden group min-h-[100px]">
-                  <input 
-                    type="file" 
-                    multiple
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
-                    onChange={handleFileChange}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  
-                  {files.length > 0 ? (
-                    <div className="text-center z-20 flex flex-col items-center pointer-events-none">
-                      <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center mb-2">
-                        <UploadCloud className="h-4 w-4 text-green-400" />
-                      </div>
-                      <p className="text-xs font-semibold text-foreground truncate max-w-[200px]">
-                        {files.length === 1 ? files[0].name : `${files.length} files selected`}
-                      </p>
-                      <p className="text-[10px] text-green-400 mt-1">Ready for Storage</p>
-                    </div>
-                  ) : (
+                <div className="space-y-3">
+                  <div className="border border-dashed border-border/60 rounded-xl p-4 flex flex-col items-center justify-center bg-card/30 hover:bg-card/60 transition-colors relative cursor-pointer overflow-hidden group min-h-[100px]">
+                    <input 
+                      type="file" 
+                      multiple
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                      onChange={handleFileChange}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    
                     <div className="text-center z-20 flex flex-col items-center pointer-events-none">
                       <div className="w-8 h-8 rounded-full bg-muted/50 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
                         <UploadCloud className="h-4 w-4 text-muted-foreground" />
                       </div>
-                      <p className="text-xs font-medium text-foreground">Drag & drop your masterpiece</p>
+                      <p className="text-xs font-medium text-foreground">Drag & drop your masterpiece, or click to browse</p>
+                    </div>
+                  </div>
+
+                  {mediaItems.length > 0 && (
+                    <div className="flex gap-3 overflow-x-auto pb-2 snap-x">
+                      {mediaItems.map((item, idx) => (
+                        <div key={item.id} className="relative flex-none w-24 h-24 rounded-md border border-border/50 bg-background overflow-hidden group snap-start">
+                          {item.url.match(/\.(mp4|mov|webm)$/i) || (item.type === 'file' && item.file.type.startsWith('video/')) ? (
+                            <video src={item.url} className="w-full h-full object-cover opacity-80" />
+                          ) : (
+                            <img src={item.url} alt={item.name} className="w-full h-full object-cover" />
+                          )}
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+                            <button onClick={() => removeMedia(idx)} className="absolute top-1 right-1 bg-red-500/80 p-1 rounded-full hover:bg-red-500 transition-colors">
+                              <X className="w-3 h-3 text-white" />
+                            </button>
+                            <div className="flex gap-2">
+                              <button onClick={(e) => { e.preventDefault(); moveMediaLeft(idx); }} disabled={idx === 0} className="bg-background/80 p-1 rounded hover:bg-background disabled:opacity-30">
+                                <ArrowLeft className="w-3 h-3 text-foreground" />
+                              </button>
+                              <button onClick={(e) => { e.preventDefault(); moveMediaRight(idx); }} disabled={idx === mediaItems.length - 1} className="bg-background/80 p-1 rounded hover:bg-background disabled:opacity-30">
+                                <ArrowRight className="w-3 h-3 text-foreground" />
+                              </button>
+                            </div>
+                          </div>
+                          <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-[8px] text-white p-0.5 truncate text-center">
+                            {idx + 1}. {item.name}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
