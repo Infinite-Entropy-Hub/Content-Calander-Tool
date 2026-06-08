@@ -129,12 +129,23 @@ export function ContentCalendar() {
 
   const handleMarkDone = async () => {
     try {
-      await supabase.from('posts').update({ status: 'posted' }).eq('id', selectedPost.id);
-      setSelectedPost(null);
+      await supabase.from('posts').update({ kanban_status: 'published' }).eq('id', selectedPost.id);
+      setSelectedPost({...selectedPost, kanban_status: 'published'});
       fetchPosts();
-      toast.success("Post marked as posted!");
+      toast.success("Post marked as completed!");
     } catch (error) {
       console.error(error);
+      toast.error("Failed to update status");
+    }
+  };
+
+  const updateKanbanStatus = async (newStatus: string) => {
+    try {
+      await supabase.from('posts').update({ kanban_status: newStatus }).eq('id', selectedPost.id);
+      setSelectedPost({...selectedPost, kanban_status: newStatus});
+      fetchPosts();
+      toast.success("Status updated!");
+    } catch(e) {
       toast.error("Failed to update status");
     }
   };
@@ -147,25 +158,34 @@ export function ContentCalendar() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       
-      let endpoint = "/api/publish/instagram";
-      if (selectedPost.platform === "facebook") endpoint = "/api/publish/facebook";
-      if (selectedPost.platform === "youtube") endpoint = "/api/publish/youtube";
-      if (selectedPost.platform === "x") endpoint = "/api/publish/twitter";
+      const endpoints: Record<string, string> = {
+          instagram: "/api/publish/instagram",
+          facebook: "/api/publish/facebook",
+          youtube: "/api/publish/youtube",
+          x: "/api/publish/twitter"
+      };
 
-      const publishRes = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId: selectedPost.id, userId: session.user.id })
+      const destinations = selectedPost.destinations || [];
+      const promises = destinations.map(async (dest: any) => {
+          const endpoint = endpoints[dest.platform];
+          if (!endpoint) return;
+          const publishRes = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ postId: selectedPost.id, userId: session.user.id })
+          });
+          const publishData = await publishRes.json();
+          if (!publishRes.ok) {
+            throw new Error(`[${dest.platform}] ${publishData.error || 'Failed to publish'}`);
+          }
       });
+
+      await Promise.all(promises);
       
-      const publishData = await publishRes.json();
-      if (!publishRes.ok) {
-         throw new Error(publishData.error || `Failed to publish to ${selectedPost.platform}`);
-      }
-      
+      await supabase.from('posts').update({ kanban_status: 'published' }).eq('id', selectedPost.id);
       fetchPosts();
-      setSelectedPost({...selectedPost, status: 'published'});
-      toast.success(`Successfully published to ${selectedPost.platform}!`);
+      setSelectedPost({...selectedPost, kanban_status: 'published'});
+      toast.success(`Successfully published to all platforms!`);
     } catch (e: any) {
       setErrorMsg(e.message);
       toast.error(e.message);
@@ -230,17 +250,7 @@ export function ContentCalendar() {
         
         const dayPosts = posts.filter(p => p.scheduled_for && isSameDay(new Date(p.scheduled_for), currentDay));
 
-        // Group posts by title + description + scheduled_for
-        const groupedMap = new Map();
-        dayPosts.forEach(post => {
-          const key = `${post.title}_${post.description}_${post.scheduled_for}`;
-          if (!groupedMap.has(key)) {
-            groupedMap.set(key, { ...post, grouped_platforms: [post.platform] });
-          } else {
-            groupedMap.get(key).grouped_platforms.push(post.platform);
-          }
-        });
-        const renderedPosts = Array.from(groupedMap.values());
+        const renderedPosts = dayPosts;
 
         days.push(
           <div
@@ -278,14 +288,14 @@ export function ContentCalendar() {
                     key={post.id} 
                     onClick={() => setSelectedPost(post)}
                     className={`flex flex-col gap-1 p-1.5 rounded-md border border-border/50 text-[10px] transition-all cursor-pointer ${
-                      (post.status === 'posted' || post.status === 'published') ? 'bg-green-500/10 border-green-500/20 opacity-70' : 'bg-background/60 hover:border-indigo-500/50 hover:shadow-[0_0_10px_rgba(99,102,241,0.1)]'
+                      (post.kanban_status === 'published') ? 'bg-green-500/10 border-green-500/20 opacity-70' : 'bg-background/60 hover:border-indigo-500/50 hover:shadow-[0_0_10px_rgba(99,102,241,0.1)]'
                     }`}
                   >
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      {post.grouped_platforms.map((platId: string) => {
-                        const platformAsset = PLATFORMS.find(p => p.id === platId);
+                      {(post.destinations || []).map((dest: any) => {
+                        const platformAsset = PLATFORMS.find(p => p.id === dest.platform);
                         return platformAsset ? (
-                          <img key={platId} src={platformAsset.logo} alt={platId} className="w-3.5 h-3.5 object-contain" />
+                          <img key={dest.platform} src={platformAsset.logo} alt={dest.platform} className="w-3.5 h-3.5 object-contain" />
                         ) : null;
                       })}
                       <span className="truncate font-semibold text-foreground/90 flex-1">{post.title}</span>
@@ -294,8 +304,17 @@ export function ContentCalendar() {
                       <p className="text-[9px] text-muted-foreground line-clamp-2 leading-tight px-0.5">{post.description}</p>
                     )}
                     <div className="flex justify-between items-center mt-0.5 px-0.5">
-                      <span className="text-[8px] uppercase tracking-wider text-muted-foreground/70">{post.post_format || "post"}</span>
-                      {(post.status === 'posted' || post.status === 'published') && <CheckCircle2 className="w-3 h-3 text-green-500" />}
+                      <span className={`text-[8px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded ${
+                        post.kanban_status === 'idea' ? 'bg-yellow-500/20 text-yellow-500' :
+                        post.kanban_status === 'implementation' ? 'bg-blue-500/20 text-blue-500' :
+                        post.kanban_status === 'test' ? 'bg-purple-500/20 text-purple-500' :
+                        post.kanban_status === 'ready_to_publish' ? 'bg-orange-500/20 text-orange-500' :
+                        post.kanban_status === 'scheduled' ? 'bg-indigo-500/20 text-indigo-500' :
+                        'bg-green-500/20 text-green-500'
+                      }`}>
+                        {post.kanban_status?.replace(/_/g, ' ') || 'idea'}
+                      </span>
+                      {post.kanban_status === 'published' && <CheckCircle2 className="w-3 h-3 text-green-500" />}
                     </div>
                   </div>
                 );
@@ -516,10 +535,62 @@ export function ContentCalendar() {
 
               <div className="flex-1" />
 
+              <div className="bg-muted/30 border border-border/50 rounded-xl p-3 shrink-0 mb-2">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2 block">Destinations</span>
+                <div className="space-y-2">
+                  {(selectedPost?.destinations || []).map((dest: any, idx: number) => {
+                    const asset = PLATFORMS.find(p => p.id === dest.platform);
+                    return (
+                      <div key={idx} className="flex items-center justify-between bg-background/50 rounded-lg p-2 border border-border/30">
+                        <div className="flex items-center gap-2">
+                          {asset && <img src={asset.logo} alt={dest.platform} className="w-4 h-4 object-contain" />}
+                          <span className="text-xs font-semibold capitalize">{dest.platform}</span>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${
+                            dest.status === 'failed' ? 'bg-red-500/20 text-red-500' :
+                            dest.status === 'published' ? 'bg-green-500/20 text-green-500' :
+                            dest.status === 'scheduled' ? 'bg-indigo-500/20 text-indigo-500' :
+                            'bg-yellow-500/20 text-yellow-500'
+                          }`}>
+                            {dest.status || 'draft'}
+                          </span>
+                          {dest.external_id && dest.status === 'published' && (
+                            <Button 
+                              onClick={() => window.open(getViewLink(dest.platform, dest.external_id) as string, '_blank')}
+                              variant="link" 
+                              className="h-auto p-0 text-[10px] text-indigo-400"
+                            >
+                              View Live
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
               {/* Action Buttons */}
               <div className="flex flex-col gap-3 pt-4 border-t border-border/50 shrink-0">
                 {errorMsg && <div className="w-full px-3 py-2 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-md font-medium">{errorMsg}</div>}
                 
+                <div className="bg-background/50 border border-border/50 rounded-xl p-3 flex justify-between items-center">
+                  <span className="text-xs font-semibold text-muted-foreground">Kanban Status</span>
+                  <select 
+                    value={selectedPost?.kanban_status || 'idea'}
+                    onChange={(e) => updateKanbanStatus(e.target.value)}
+                    className="bg-muted text-xs font-bold px-2 py-1.5 rounded-lg border-0 focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                  >
+                    <option value="idea">Idea</option>
+                    <option value="implementation">Implementation</option>
+                    <option value="test">Test</option>
+                    <option value="ready_to_publish">Ready to Publish</option>
+                    <option value="scheduled">Scheduled</option>
+                    <option value="published">Published</option>
+                  </select>
+                </div>
+
                 <div className="grid grid-cols-2 gap-2">
                   <Button onClick={copyCaption} variant="secondary" size="sm" className="w-full text-xs h-9">
                     <Copy className="w-3.5 h-3.5 mr-2" /> Copy Caption
@@ -531,24 +602,24 @@ export function ContentCalendar() {
                   )}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  {selectedPost?.status !== 'published' && selectedPost?.status !== 'posted' && ['instagram', 'facebook', 'youtube', 'x'].includes(selectedPost?.platform) && (
+                  {selectedPost?.kanban_status !== 'published' && (
                     <Button onClick={handlePublishNow} disabled={isPublishing} size="sm" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs h-9">
-                      <Send className="w-3.5 h-3.5 mr-2" /> {isPublishing ? "Wait..." : "Publish"}
+                      <Send className="w-3.5 h-3.5 mr-2" /> {isPublishing ? "Wait..." : "Publish All"}
                     </Button>
                   )}
                   
                   <Button 
                     onClick={handleMarkDone} 
-                    disabled={selectedPost?.status === 'published' || selectedPost?.status === 'posted'}
+                    disabled={selectedPost?.kanban_status === 'published'}
                     size="sm" 
                     className={`w-full text-xs h-9 ${
-                      selectedPost?.status === 'published' || selectedPost?.status === 'posted' 
+                      selectedPost?.kanban_status === 'published'
                         ? "bg-green-500/20 text-green-400 cursor-not-allowed opacity-70" 
                         : "bg-green-600 hover:bg-green-700 text-white"
                     }`}
                   >
                     <CheckCircle2 className="w-3.5 h-3.5 mr-2" /> 
-                    {selectedPost?.status === 'published' || selectedPost?.status === 'posted' ? "Completed" : "Mark Done"}
+                    {selectedPost?.kanban_status === 'published' ? "Completed" : "Mark Done"}
                   </Button>
                 </div>
 
@@ -571,19 +642,6 @@ export function ContentCalendar() {
                   </Button>
                 </div>
               </div>
-
-            {selectedPost?.platform_post_id && (
-              <div className="pt-2">
-                <Button 
-                  onClick={() => window.open(getViewLink(selectedPost.platform, selectedPost.platform_post_id) as string, '_blank')}
-                  variant="outline" 
-                  size="sm" 
-                  className="w-full text-xs h-9 bg-background/50 hover:bg-background border-border/50 text-indigo-300 hover:text-indigo-200"
-                >
-                  <ExternalLink className="w-3.5 h-3.5 mr-2" /> View Live on {selectedPlatform?.name || "Platform"}
-                </Button>
-              </div>
-            )}
           </div>
           </div>
         </DialogContent>

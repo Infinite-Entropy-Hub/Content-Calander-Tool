@@ -122,6 +122,16 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn, initialDate }
         return;
       }
 
+      // Validation: YouTube Shorts cannot be images
+      if ((platform === "youtube" || crossPostYT) && files.length > 0) {
+        const hasImage = files.some(f => f.type.startsWith('image/'));
+        if (hasImage) {
+          setErrorMsg("YouTube Shorts must be video files, not static images.");
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
       let finalMediaUrls: string[] = [];
 
       if (inputType === "upload" && files.length > 0) {
@@ -154,15 +164,42 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn, initialDate }
       const dateTimeString = `${scheduledDate}T${postTime}:00`;
       const scheduledFor = new Date(dateTimeString).toISOString();
 
+      let destinations: any[] = [];
+      
+      if (editPost && editPost.destinations) {
+        // If editing, preserve the destinations but update their status if we are re-scheduling or publishing
+        destinations = editPost.destinations.map((d: any) => ({
+          ...d,
+          status: publishStatus
+        }));
+      } else {
+        // Construct destinations from main platform and cross-post toggles
+        destinations.push({
+          platform,
+          status: publishStatus,
+          post_format: postFormat,
+          external_id: null,
+          error_log: null
+        });
+
+        if (crossPostYT) destinations.push({ platform: 'youtube', status: publishStatus, post_format: 'shorts', external_id: null, error_log: null });
+        if (crossPostFB) destinations.push({ platform: 'facebook', status: publishStatus, post_format: postFormat === 'story' ? 'story' : postFormat, external_id: null, error_log: null });
+        if (crossPostX) destinations.push({ platform: 'x', status: publishStatus, post_format: 'post', external_id: null, error_log: null });
+        if (crossPostIG) destinations.push({ platform: 'instagram', status: publishStatus, post_format: postFormat === 'shorts' ? 'reel' : postFormat, external_id: null, error_log: null });
+      }
+
+      let kStatus = editPost?.kanban_status || 'idea';
+      if (publishStatus === 'published') kStatus = 'published';
+      else if (publishStatus === 'scheduled') kStatus = 'scheduled';
+
       const postData = {
         title: title || "Untitled Concept",
         description,
         notes,
+        kanban_status: kStatus,
         is_scheduled: isScheduled,
         auto_publish: autoPublish,
-        platform,
-        post_format: postFormat,
-        status: publishStatus,
+        destinations,
         media_urls: finalMediaUrls,
         thumbnail_url: thumbnailUrl || null,
         user_id: session.user.id,
@@ -199,39 +236,10 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn, initialDate }
         }
       };
 
-      // Handle Cross-Posting dynamically and Immediate Publishing
-      if (!editPost) {
-        // Collect all IDs that need to be published if status is 'published'
-        const postsToPublish = [{ id: newPostId, platform }];
-
-        if (crossPostYT) {
-          const ytData = { ...postData, platform: "youtube", post_format: "shorts" };
-          const { data } = await supabase.from('posts').insert([ytData]).select().single();
-          if (data) postsToPublish.push({ id: data.id, platform: "youtube" });
-        }
-        if (crossPostFB) {
-          const fbData = { ...postData, platform: "facebook", post_format: postFormat };
-          const { data } = await supabase.from('posts').insert([fbData]).select().single();
-          if (data) postsToPublish.push({ id: data.id, platform: "facebook" });
-        }
-        if (crossPostX) {
-          const xData = { ...postData, platform: "x", post_format: "post" };
-          const { data } = await supabase.from('posts').insert([xData]).select().single();
-          if (data) postsToPublish.push({ id: data.id, platform: "x" });
-        }
-        if (crossPostIG) {
-          const igData = { ...postData, platform: "instagram", post_format: postFormat === "shorts" ? "reel" : "post" };
-          const { data } = await supabase.from('posts').insert([igData]).select().single();
-          if (data) postsToPublish.push({ id: data.id, platform: "instagram" });
-        }
-
-        if (publishStatus === "published") {
-          toast.info(`Publishing to ${postsToPublish.length} platform(s)... this might take a minute!`);
-          await Promise.all(postsToPublish.map(p => triggerPublish(p.id, p.platform)));
-        }
-      } else if (publishStatus === "published" && platform === "instagram") {
-         // Legacy fallback for editing a single instagram post and publishing immediately
-         await triggerPublish(newPostId, "instagram");
+      // Handle Immediate Publishing
+      if (publishStatus === "published") {
+        toast.info(`Publishing to ${destinations.length} platform(s)... this might take a minute!`);
+        await Promise.all(destinations.map(d => triggerPublish(newPostId, d.platform)));
       }
 
       toast.success(publishStatus === "published" ? "Published successfully!" : "Saved and scheduled successfully!");
