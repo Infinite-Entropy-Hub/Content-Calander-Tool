@@ -524,6 +524,18 @@ export function ContentCalendar() {
                 </div>
               )}
 
+              {selectedPost?.work_reminder_for && (
+                <div className="space-y-1 bg-pink-500/10 p-3.5 rounded-xl border border-pink-500/20 shrink-0">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-pink-500/80">Telegram Work Reminder</span>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Clock className="w-3.5 h-3.5 text-pink-400" />
+                    <span className="text-xs text-pink-200/90 font-medium">
+                      {format(new Date(selectedPost.work_reminder_for), "MMM d, yyyy 'at' h:mm a")}
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {selectedPost?.error_log && (
                 <div className={`space-y-1 p-3.5 rounded-xl border shrink-0 ${selectedPost.status === 'failed' ? 'bg-red-500/10 border-red-500/20' : 'bg-green-500/10 border-green-500/20'}`}>
                   <span className={`text-[10px] font-bold uppercase tracking-widest ${selectedPost.status === 'failed' ? 'text-red-400' : 'text-green-400'}`}>

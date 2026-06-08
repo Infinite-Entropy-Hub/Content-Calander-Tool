@@ -47,6 +47,11 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn, initialDate }
   const [inputType, setInputType] = useState<"upload" | "link">("upload");
   const [files, setFiles] = useState<File[]>([]);
   const [rawLink, setRawLink] = useState("");
+
+  const [kanbanStatus, setKanbanStatus] = useState("idea");
+  const [setReminder, setSetReminder] = useState(false);
+  const [reminderDate, setReminderDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [reminderTime, setReminderTime] = useState(format(new Date(), "HH:mm"));
   
   const [crossPostYT, setCrossPostYT] = useState(false);
   const [crossPostFB, setCrossPostFB] = useState(false);
@@ -78,8 +83,21 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn, initialDate }
         setAutoPublish(editPost.auto_publish);
       }
       setThumbnailUrl(editPost.thumbnail_url || "");
+      
+      setKanbanStatus(editPost.kanban_status || "idea");
+      if (editPost.work_reminder_for) {
+        setSetReminder(true);
+        setReminderDate(format(new Date(editPost.work_reminder_for), "yyyy-MM-dd"));
+        setReminderTime(format(new Date(editPost.work_reminder_for), "HH:mm"));
+      } else {
+        setSetReminder(false);
+      }
     } else if (open && !editPost) {
       resetForm();
+      setKanbanStatus("idea");
+      setSetReminder(false);
+      setReminderDate(format(new Date(), "yyyy-MM-dd"));
+      setReminderTime(format(new Date(), "HH:mm"));
       if (initialDate) {
         setScheduledDate(format(initialDate, "yyyy-MM-dd"));
       }
@@ -188,9 +206,14 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn, initialDate }
         if (crossPostIG) destinations.push({ platform: 'instagram', status: publishStatus, post_format: postFormat === 'shorts' ? 'reel' : postFormat, external_id: null, error_log: null });
       }
 
-      let kStatus = editPost?.kanban_status || 'idea';
+      let kStatus = kanbanStatus;
       if (publishStatus === 'published') kStatus = 'published';
       else if (publishStatus === 'scheduled') kStatus = 'scheduled';
+
+      let workReminderFor = null;
+      if (setReminder && kStatus !== 'published' && kStatus !== 'scheduled') {
+        workReminderFor = new Date(`${reminderDate}T${reminderTime}:00`).toISOString();
+      }
 
       const postData = {
         title: title || "Untitled Concept",
@@ -204,6 +227,8 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn, initialDate }
         thumbnail_url: thumbnailUrl || null,
         user_id: session.user.id,
         scheduled_for: scheduledFor,
+        work_reminder_for: workReminderFor,
+        work_reminder_sent: false,
       };
 
       let newPostId = "";
@@ -262,11 +287,15 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn, initialDate }
     setDescription("");
     setFiles([]);
     setRawLink("");
-    setThumbnailUrl("");
-    setCrossPostYT(false);
+    setRawLink("");
     setCrossPostFB(false);
-    setCrossPostX(false);
     setCrossPostIG(false);
+    setCrossPostX(false);
+    setCrossPostYT(false);
+    setKanbanStatus("idea");
+    setSetReminder(false);
+    setReminderDate(format(new Date(), "yyyy-MM-dd"));
+    setReminderTime(format(new Date(), "HH:mm"));
     setErrorMsg("");
     setSuccessMsg("");
     setScheduledDate(format(new Date(), "yyyy-MM-dd"));
@@ -474,9 +503,53 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn, initialDate }
                     <span className="text-[10px] text-muted-foreground pl-5">Send me an Email & Telegram to post natively.</span>
                   </label>
                 </div>
+                </div>
+              )}
+
+              {kanbanStatus !== 'scheduled' && kanbanStatus !== 'published' && (
+                <div className="mt-4 pt-4 border-t border-border/50">
+                  <div className="flex items-center justify-between mb-3">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5" /> Work Reminder
+                    </Label>
+                    <label className="flex items-center gap-2 cursor-pointer bg-pink-500/10 hover:bg-pink-500/20 px-2 py-1 rounded-md border border-pink-500/20 transition-colors">
+                      <input 
+                        type="checkbox" 
+                        checked={setReminder} 
+                        onChange={(e) => setSetReminder(e.target.checked)} 
+                        className="rounded bg-background accent-pink-500 w-3.5 h-3.5" 
+                      />
+                      <span className="text-[10px] font-semibold text-pink-400">Set Telegram Reminder</span>
+                    </label>
+                  </div>
+
+                  <div className={`flex flex-col sm:flex-row gap-3 transition-all duration-300 ${setReminder ? 'opacity-100' : 'opacity-40 grayscale pointer-events-none'}`}>
+                    <div className="relative flex-1 group">
+                      <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground group-focus-within:text-pink-400 transition-colors">
+                        <CalendarIcon className="w-4 h-4" />
+                      </div>
+                      <Input 
+                        type="date" 
+                        value={reminderDate}
+                        onChange={(e) => setReminderDate(e.target.value)}
+                        className="bg-background/80 pl-9 border-border/50 h-10 text-xs font-medium focus:ring-2 focus:ring-pink-500/30 rounded-lg shadow-sm w-full"
+                      />
+                    </div>
+                    <div className="relative flex-1 group">
+                      <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground group-focus-within:text-pink-400 transition-colors">
+                        <Clock className="w-4 h-4" />
+                      </div>
+                      <Input 
+                        type="time" 
+                        value={reminderTime}
+                        onChange={(e) => setReminderTime(e.target.value)}
+                        className="bg-background/80 pl-9 border-border/50 h-10 text-xs font-medium focus:ring-2 focus:ring-pink-500/30 rounded-lg shadow-sm w-full"
+                      />
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
-
             {/* Notes */}
             <div className="space-y-2">
               <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Internal Notes (Instructions)</Label>

@@ -17,63 +17,83 @@ export async function POST(req: Request) {
       const chatId = body.callback_query.message.chat.id;
 
       if (data.startsWith('action_')) {
-        const parts = data.replace('action_', '').split('_');
-        let action = parts[0];
-        let value = null;
-        let postId = null;
-
-        if (action === 'remind') {
-          value = parseInt(parts[1]); // 30 or 120
-          postId = parts.slice(2).join('_');
-        } else if (action === 'published') {
-          postId = parts.slice(1).join('_');
-        }
-
         const tgBotToken = process.env.TELEGRAM_BOT_TOKEN;
+        
+        let replyText = "";
 
-        if (postId) {
-          if (action === 'remind' && value) {
-            // Update post to scheduled_for + value minutes, and status = 'scheduled'
+        if (data.startsWith('action_remind_')) {
+          // Old remind (for posting)
+          const parts = data.replace('action_remind_', '').split('_');
+          const value = parseInt(parts[0]);
+          const postId = parts.slice(1).join('_');
+          
+          if (postId && value) {
             const futureDate = new Date(Date.now() + value * 60000).toISOString();
             await supabaseAdmin.from('posts').update({ 
-              status: 'scheduled', 
+              kanban_status: 'scheduled', 
               scheduled_for: futureDate,
               notification_sent: false
             }).eq('id', postId);
-
-            // Edit message to remove buttons and confirm
-            if (tgBotToken) {
-              await fetch(`https://api.telegram.org/bot${tgBotToken}/editMessageText`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  chat_id: chatId,
-                  message_id: messageId,
-                  text: `⏰ <b>Snoozed!</b>\nI will remind you again in ${value} minutes.`,
-                  parse_mode: 'HTML'
-                })
-              });
-            }
-          } else if (action === 'published') {
-            await supabaseAdmin.from('posts').update({ 
-              status: 'published',
-              error_log: '[User manually marked as published via Telegram]'
-            }).eq('id', postId);
-
-            // Edit message to remove buttons and confirm
-            if (tgBotToken) {
-              await fetch(`https://api.telegram.org/bot${tgBotToken}/editMessageText`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  chat_id: chatId,
-                  message_id: messageId,
-                  text: `✅ <b>Awesome!</b>\nMarked as published in your Content Calendar.`,
-                  parse_mode: 'HTML'
-                })
-              });
-            }
+            replyText = `⏰ <b>Snoozed!</b>\nI will remind you again to post in ${value} minutes.`;
           }
+        } 
+        else if (data.startsWith('action_published_')) {
+          const postId = data.replace('action_published_', '');
+          if (postId) {
+            await supabaseAdmin.from('posts').update({ 
+              kanban_status: 'published'
+            }).eq('id', postId);
+            replyText = `✅ <b>Awesome!</b>\nMarked as published in your Content Calendar.`;
+          }
+        }
+        else if (data.startsWith('action_schedule_auto_')) {
+          const postId = data.replace('action_schedule_auto_', '');
+          if (postId) {
+            await supabaseAdmin.from('posts').update({ 
+              kanban_status: 'scheduled',
+              is_scheduled: true,
+              auto_publish: true
+            }).eq('id', postId);
+            replyText = `🤖 <b>Automation Scheduled!</b>\nMoved to the Scheduled phase with Auto-Publish ON.`;
+          }
+        }
+        else if (data.startsWith('action_schedule_manual_')) {
+          const postId = data.replace('action_schedule_manual_', '');
+          if (postId) {
+            await supabaseAdmin.from('posts').update({ 
+              kanban_status: 'scheduled',
+              is_scheduled: true,
+              auto_publish: false
+            }).eq('id', postId);
+            replyText = `✍️ <b>Manual Scheduling Confirmed!</b>\nMoved to the Scheduled phase. You will receive a notification to post when it's time.`;
+          }
+        }
+        else if (data.startsWith('action_work_remind_')) {
+          const parts = data.replace('action_work_remind_', '').split('_');
+          const value = parseInt(parts[0]);
+          const postId = parts.slice(1).join('_');
+          
+          if (postId && value) {
+            const futureDate = new Date(Date.now() + value * 60000).toISOString();
+            await supabaseAdmin.from('posts').update({ 
+              work_reminder_for: futureDate,
+              work_reminder_sent: false
+            }).eq('id', postId);
+            replyText = `⏰ <b>Work Reminder Snoozed!</b>\nI will remind you to work on this post in ${value} minutes.`;
+          }
+        }
+
+        if (replyText && tgBotToken) {
+          await fetch(`https://api.telegram.org/bot${tgBotToken}/editMessageText`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: chatId,
+              message_id: messageId,
+              text: replyText,
+              parse_mode: 'HTML'
+            })
+          });
         }
 
         // Always answer callback query to stop loading spinner on the button

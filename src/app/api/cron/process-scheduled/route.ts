@@ -29,6 +29,54 @@ export async function GET(req: Request) {
 
     // 2. Fetch all due posts
     const now = new Date().toISOString();
+    
+    // --- WORK REMINDERS ---
+    const { data: reminderPosts } = await supabaseAdmin
+      .from('posts')
+      .select('*')
+      .eq('work_reminder_sent', false)
+      .lte('work_reminder_for', now);
+
+    const results = [];
+
+    if (reminderPosts && reminderPosts.length > 0) {
+      for (const post of reminderPosts) {
+        try {
+          const { data: profile } = await supabaseAdmin.from('profiles').select('telegram_chat_id, telegram_enabled').eq('id', post.user_id).single();
+          const tgBotToken = process.env.TELEGRAM_BOT_TOKEN;
+          const tgChatId = profile?.telegram_chat_id;
+          const tgEnabled = profile?.telegram_enabled;
+
+          if (tgEnabled && tgBotToken && tgChatId) {
+            const msg = `🛠️ <b>Time to Work on Post!</b>\n\n<b>Title:</b> ${post.title}\n<b>Current Phase:</b> ${post.kanban_status.toUpperCase()}\n<b>Target Publish Date:</b> ${post.scheduled_for ? new Date(post.scheduled_for).toLocaleString() : 'Not Set'}\n\n<b>Notes:</b> ${post.notes || 'None'}\n\nWhat do you want to do?`;
+            
+            const inline_keyboard = [
+              [
+                { text: '🤖 Schedule Automation', callback_data: `action_schedule_auto_${post.id}` },
+                { text: '✍️ Schedule Manual', callback_data: `action_schedule_manual_${post.id}` }
+              ],
+              [
+                { text: '⏰ Remind in 1h', callback_data: `action_work_remind_60_${post.id}` },
+                { text: '⏰ Remind in 2h', callback_data: `action_work_remind_120_${post.id}` }
+              ]
+            ];
+
+            await fetch(`https://api.telegram.org/bot${tgBotToken}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chat_id: tgChatId, text: msg, parse_mode: 'HTML', reply_markup: { inline_keyboard } })
+            });
+            
+            await supabaseAdmin.from('posts').update({ work_reminder_sent: true }).eq('id', post.id);
+            results.push({ id: post.id, action: 'work_reminder_sent' });
+          }
+        } catch (err) {
+          console.error("Error processing work reminder", err);
+        }
+      }
+    }
+
+    // --- SCHEDULED PUBLISHING ---
     const { data: posts, error: fetchError } = await supabaseAdmin
       .from('posts')
       .select('*')
@@ -41,10 +89,8 @@ export async function GET(req: Request) {
     }
 
     if (!posts || posts.length === 0) {
-      return NextResponse.json({ message: "No posts due for publishing.", count: 0 });
+      return NextResponse.json({ message: "Processed", results, count: 0 });
     }
-
-    const results = [];
 
     // 3. Process each post
     for (const post of posts) {
