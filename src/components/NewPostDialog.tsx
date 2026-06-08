@@ -68,8 +68,24 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn, initialDate }
     if (open && editPost) {
       setTitle(editPost.title || "");
       setDescription(editPost.description || "");
-      setPlatform(editPost.platform || "instagram");
-      setPostFormat(editPost.post_format || "reel");
+      
+      if (editPost.destinations && editPost.destinations.length > 0) {
+        const main = editPost.destinations[0];
+        setPlatform(main.platform);
+        setPostFormat(main.post_format === 'reel' ? (main.platform === 'youtube' ? 'shorts' : 'reel') : main.post_format);
+        
+        setCrossPostYT(editPost.destinations.some((d: any) => d.platform === 'youtube' && d.platform !== main.platform));
+        setCrossPostFB(editPost.destinations.some((d: any) => d.platform === 'facebook' && d.platform !== main.platform));
+        setCrossPostX(editPost.destinations.some((d: any) => d.platform === 'x' && d.platform !== main.platform));
+        setCrossPostIG(editPost.destinations.some((d: any) => d.platform === 'instagram' && d.platform !== main.platform));
+      } else {
+        setPlatform("instagram");
+        setPostFormat("reel");
+        setCrossPostYT(false);
+        setCrossPostFB(false);
+        setCrossPostX(false);
+        setCrossPostIG(false);
+      }
       
       if (editPost.notes) setNotes(editPost.notes);
       if (editPost.is_scheduled !== undefined) setIsScheduled(editPost.is_scheduled);
@@ -183,28 +199,39 @@ export function NewPostDialog({ onPostAdded, editPost, triggerBtn, initialDate }
       const scheduledFor = new Date(dateTimeString).toISOString();
 
       let destinations: any[] = [];
-      
-      if (editPost && editPost.destinations) {
-        // If editing, preserve the destinations but update their status if we are re-scheduling or publishing
-        destinations = editPost.destinations.map((d: any) => ({
-          ...d,
-          status: publishStatus
-        }));
-      } else {
-        // Construct destinations from main platform and cross-post toggles
-        destinations.push({
-          platform,
-          status: publishStatus,
-          post_format: postFormat,
-          external_id: null,
-          error_log: null
-        });
+      const oldDestinations = editPost ? (editPost.destinations || []) : [];
 
-        if (crossPostYT) destinations.push({ platform: 'youtube', status: publishStatus, post_format: 'shorts', external_id: null, error_log: null });
-        if (crossPostFB) destinations.push({ platform: 'facebook', status: publishStatus, post_format: postFormat === 'story' ? 'story' : postFormat, external_id: null, error_log: null });
-        if (crossPostX) destinations.push({ platform: 'x', status: publishStatus, post_format: 'post', external_id: null, error_log: null });
-        if (crossPostIG) destinations.push({ platform: 'instagram', status: publishStatus, post_format: postFormat === 'shorts' ? 'reel' : postFormat, external_id: null, error_log: null });
-      }
+      const getOldDest = (plat: string) => oldDestinations.find((d: any) => d.platform === plat);
+
+      const addDest = (plat: string, format: string) => {
+        const old = getOldDest(plat);
+        // If we click "Update Details" (draft), keep the existing platform statuses.
+        // If we click "Publish All" or "Schedule Post", override the platform status.
+        const newStatus = (publishStatus === 'draft' && old) ? old.status : publishStatus;
+        
+        destinations.push({
+          platform: plat,
+          status: newStatus,
+          post_format: format,
+          external_id: old ? old.external_id : null,
+          error_log: old ? old.error_log : null
+        });
+      };
+
+      // Ensure no duplicates
+      const addedPlatforms = new Set();
+      const safeAdd = (p: string, f: string) => {
+        if (!addedPlatforms.has(p)) {
+          addDest(p, f);
+          addedPlatforms.add(p);
+        }
+      };
+
+      safeAdd(platform, postFormat);
+      if (crossPostYT) safeAdd('youtube', 'shorts');
+      if (crossPostFB) safeAdd('facebook', postFormat === 'story' ? 'story' : postFormat);
+      if (crossPostX) safeAdd('x', 'post');
+      if (crossPostIG) safeAdd('instagram', postFormat === 'shorts' ? 'reel' : postFormat);
 
       let kStatus = kanbanStatus;
       if (publishStatus === 'published') kStatus = 'published';

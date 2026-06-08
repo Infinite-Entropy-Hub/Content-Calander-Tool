@@ -538,6 +538,43 @@ export function ContentCalendar() {
             
             {/* RIGHT COLUMN: Info & Controls */}
             <div className="space-y-4 flex flex-col h-full">
+              {/* Compact Top Action Bar */}
+              <div className="flex flex-wrap gap-2 pb-2 border-b border-border/50 shrink-0">
+                <NewPostDialog 
+                  editPost={selectedPost} 
+                  onPostAdded={() => { setSelectedPost(null); fetchPosts(); }} 
+                  triggerBtn={
+                    <Button variant="secondary" size="sm" className="h-8 text-[10px] px-2.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20">
+                      <Edit3 className="w-3 h-3 mr-1.5" /> Edit
+                    </Button>
+                  }
+                />
+                <Button onClick={copyCaption} variant="secondary" size="sm" className="h-8 text-[10px] px-2.5">
+                  <Copy className="w-3 h-3 mr-1.5" /> Copy
+                </Button>
+                {selectedPost?.media_urls && selectedPost.media_urls.length > 0 && (
+                  <Button onClick={downloadAllMedia} variant="secondary" size="sm" className="h-8 text-[10px] px-2.5">
+                    <Download className="w-3 h-3 mr-1.5" /> Save Media
+                  </Button>
+                )}
+                {selectedPost?.kanban_status !== 'published' && (
+                  <Button onClick={handlePublishNow} disabled={isPublishing} size="sm" className="h-8 text-[10px] px-2.5 bg-indigo-600 hover:bg-indigo-700 text-white">
+                    <Send className="w-3 h-3 mr-1.5" /> {isPublishing ? "Wait..." : "Publish"}
+                  </Button>
+                )}
+                <Button 
+                  onClick={handleMarkDone} 
+                  disabled={selectedPost?.kanban_status === 'published'}
+                  size="sm" 
+                  className={`h-8 text-[10px] px-2.5 ${selectedPost?.kanban_status === 'published' ? "bg-green-500/20 text-green-400 opacity-70" : "bg-green-600 hover:bg-green-700 text-white"}`}
+                >
+                  <CheckCircle2 className="w-3 h-3 mr-1.5" /> Done
+                </Button>
+                <Button onClick={() => setDeleteDialogOpen(true)} variant="destructive" size="sm" className="h-8 text-[10px] px-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 ml-auto border border-red-500/20">
+                  <Trash2 className="w-3 h-3 mr-1.5" /> Delete
+                </Button>
+              </div>
+
               <div className="space-y-2 bg-card/50 p-3.5 rounded-xl border border-border/50 max-h-[200px] overflow-y-auto shrink-0 shadow-inner">
                 <p className="text-sm whitespace-pre-wrap text-foreground/90 leading-relaxed">{selectedPost?.description || "No caption provided."}</p>
               </div>
@@ -624,61 +661,10 @@ export function ContentCalendar() {
                     <option value="scheduled">Scheduled</option>
                     <option value="published">Published</option>
                   </select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <Button onClick={copyCaption} variant="secondary" size="sm" className="w-full text-xs h-9">
-                    <Copy className="w-3.5 h-3.5 mr-2" /> Copy Caption
-                  </Button>
-                  {selectedPost?.media_urls && selectedPost.media_urls.length > 0 && (
-                    <Button onClick={downloadAllMedia} variant="secondary" size="sm" className="w-full text-xs h-9">
-                      <Download className="w-3.5 h-3.5 mr-2" /> Save Media
-                    </Button>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {selectedPost?.kanban_status !== 'published' && (
-                    <Button onClick={handlePublishNow} disabled={isPublishing} size="sm" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs h-9">
-                      <Send className="w-3.5 h-3.5 mr-2" /> {isPublishing ? "Wait..." : "Publish All"}
-                    </Button>
-                  )}
-                  
-                  <Button 
-                    onClick={handleMarkDone} 
-                    disabled={selectedPost?.kanban_status === 'published'}
-                    size="sm" 
-                    className={`w-full text-xs h-9 ${
-                      selectedPost?.kanban_status === 'published'
-                        ? "bg-green-500/20 text-green-400 cursor-not-allowed opacity-70" 
-                        : "bg-green-600 hover:bg-green-700 text-white"
-                    }`}
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5 mr-2" /> 
-                    {selectedPost?.kanban_status === 'published' ? "Completed" : "Mark Done"}
-                  </Button>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <NewPostDialog 
-                    editPost={selectedPost} 
-                    onPostAdded={() => {
-                      setSelectedPost(null);
-                      fetchPosts();
-                    }} 
-                    triggerBtn={
-                      <Button variant="outline" size="sm" className="w-full text-xs h-9 bg-background/50">
-                        <Edit3 className="w-3.5 h-3.5 mr-2" /> Edit Details
-                      </Button>
-                    }
-                  />
-
-                  <Button onClick={() => setDeleteDialogOpen(true)} variant="destructive" size="sm" className="w-full text-xs h-9 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20">
-                    <Trash2 className="w-3.5 h-3.5 mr-2" /> Delete
-                  </Button>
-                </div>
               </div>
+            </div>
           </div>
-          </div>
+        </div>
         </DialogContent>
       </Dialog>
 
