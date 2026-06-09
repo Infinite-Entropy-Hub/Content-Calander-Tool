@@ -428,7 +428,7 @@ export function ContentCalendar() {
                         key={post.id} 
                         onClick={() => setSelectedPost(post)}
                         className={`flex flex-col gap-2 p-3.5 rounded-xl border border-border/50 transition-all cursor-pointer shadow-sm ${
-                          (post.status === 'posted' || post.status === 'published') ? 'bg-green-500/10 border-green-500/20' : 'bg-card/60 hover:border-indigo-500/50 hover:shadow-md'
+                          (post.kanban_status === 'published') ? 'bg-green-500/10 border-green-500/20' : 'bg-card/60 hover:border-indigo-500/50 hover:shadow-md'
                         }`}
                       >
                         <div className="flex items-center gap-2.5 flex-wrap">
@@ -439,7 +439,7 @@ export function ContentCalendar() {
                             ) : null;
                           })}
                           <span className="font-bold text-sm truncate text-foreground/90 flex-1">{post.title}</span>
-                          {(post.status === 'posted' || post.status === 'published') && <CheckCircle2 className="w-4 h-4 text-green-500" />}
+                          {(post.kanban_status === 'published') && <CheckCircle2 className="w-4 h-4 text-green-500" />}
                         </div>
                         {post.description && (
                           <p className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed">{post.description}</p>
