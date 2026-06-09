@@ -337,7 +337,12 @@ export function ContentCalendar() {
                       <div className="flex justify-between items-center px-1 pb-0.5 border-t border-border/20 mt-1 pt-1">
                         <span className="text-[8px] font-medium text-muted-foreground uppercase">{post.destinations?.[0]?.post_format || "post"}</span>
                         {post.scheduled_for && (
-                          <span className="text-[8px] font-medium text-muted-foreground">{format(new Date(post.scheduled_for), "h:mm a")}</span>
+                          <div className="flex items-center gap-1">
+                            <span className="text-[8px] font-medium text-muted-foreground">{format(new Date(post.scheduled_for), "h:mm a")}</span>
+                            <span className="text-[7px] font-bold uppercase tracking-widest bg-muted/80 text-muted-foreground px-1 py-[1px] rounded">
+                              {post.publish_mode || 'manual'}
+                            </span>
+                          </div>
                         )}
                       </div>
                     )}
@@ -441,7 +446,12 @@ export function ContentCalendar() {
                         )}
                         <div className="flex justify-between items-center mt-1 pt-2 border-t border-border/30">
                           <span className="text-[10px] uppercase tracking-widest text-muted-foreground/80 font-bold">{post.post_format || "post"}</span>
-                          <span className="text-[10px] text-muted-foreground/80 font-bold bg-background/50 px-2 py-0.5 rounded-md">{format(new Date(post.scheduled_for), "h:mm a")}</span>
+                          <span className="text-[10px] text-muted-foreground/80 font-bold bg-background/50 pl-2 pr-1 py-0.5 rounded-md flex items-center gap-1.5">
+                            {format(new Date(post.scheduled_for), "h:mm a")}
+                            <span className="text-[8px] uppercase tracking-widest bg-muted/80 text-muted-foreground px-1.5 py-0.5 rounded">
+                              {post.publish_mode || 'manual'}
+                            </span>
+                          </span>
                         </div>
                       </div>
                     );
