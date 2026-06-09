@@ -7,6 +7,7 @@ import { ContentCalendar } from "./ContentCalendar";
 import { KanbanBoard } from "./KanbanBoard";
 import { MediaLibrary } from "./MediaLibrary";
 import { AnalyticsView } from "./AnalyticsView";
+import { NotesView } from "./NotesView";
 import { Button } from "@/components/ui/button";
 import { Calendar, LayoutDashboard } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -71,6 +72,7 @@ export function PremiumWorkspace() {
           
           <div className="p-4 md:p-8 flex-1 relative z-10">
             {activeTab === "dashboard" && <DashboardView />}
+            {activeTab === "notes" && <NotesView />}
             {activeTab === "library" && <MediaLibrary />}
             {activeTab === "analytics" && <AnalyticsView />}
           </div>

@@ -20,8 +20,11 @@ export default function LandingPage() {
 
   useEffect(() => {
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) {
+        await supabase.auth.signOut();
+      }
+      if (session && !error) {
         router.push("/dashboard");
       } else {
         setLoading(false);

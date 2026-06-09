@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { LayoutDashboard, Settings, User as UserIcon, FolderOpen, PieChart, PanelLeftClose, Sparkles } from "lucide-react";
+import { LayoutDashboard, Settings, User as UserIcon, FolderOpen, PieChart, PanelLeftClose, Sparkles, StickyNote } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -43,8 +43,11 @@ export function AppSidebar({ activeTab, setActiveTab }: { activeTab: string, set
 
   useEffect(() => {
     const fetchUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) {
+        await supabase.auth.signOut();
+      }
+      if (session && !error) {
         setUserEmail(session.user.email || "Creator");
         const { data } = await supabase.from("profiles").select("icon").eq("id", session.user.id).single();
         if (data && data.icon) {
@@ -60,6 +63,11 @@ export function AppSidebar({ activeTab, setActiveTab }: { activeTab: string, set
       title: "Dashboard",
       id: "dashboard",
       icon: LayoutDashboard,
+    },
+    {
+      title: "Notes",
+      id: "notes",
+      icon: StickyNote,
     },
     {
       title: "Library",

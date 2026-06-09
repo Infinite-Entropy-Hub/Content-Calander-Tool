@@ -10,8 +10,9 @@ export default function Home() {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error || !session) {
+        if (error) await supabase.auth.signOut();
         router.push("/auth");
       }
     };
