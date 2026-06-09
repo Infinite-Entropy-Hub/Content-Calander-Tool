@@ -340,7 +340,7 @@ export function ContentCalendar() {
                           <div className="flex items-center gap-1">
                             <span className="text-[8px] font-medium text-muted-foreground">{format(new Date(post.scheduled_for), "h:mm a")}</span>
                             <span className="text-[7px] font-bold uppercase tracking-widest bg-muted/80 text-muted-foreground px-1 py-[1px] rounded">
-                              {post.publish_mode || 'manual'}
+                              {post.auto_publish ? 'automatic' : 'manual'}
                             </span>
                           </div>
                         )}
@@ -449,7 +449,7 @@ export function ContentCalendar() {
                           <span className="text-[10px] text-muted-foreground/80 font-bold bg-background/50 pl-2 pr-1 py-0.5 rounded-md flex items-center gap-1.5">
                             {format(new Date(post.scheduled_for), "h:mm a")}
                             <span className="text-[8px] uppercase tracking-widest bg-muted/80 text-muted-foreground px-1.5 py-0.5 rounded">
-                              {post.publish_mode || 'manual'}
+                              {post.auto_publish ? 'automatic' : 'manual'}
                             </span>
                           </span>
                         </div>
