@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { MetaSetupGuide } from "@/components/MetaSetupGuide";
 
 const ICONS = [
   // Rick and Morty
@@ -486,8 +487,10 @@ export default function ProfilePage() {
           </DialogContent>
         </Dialog>
 
-        {/* Meta Setup Guide Dialog */}
-        <Dialog open={isGuideOpen} onOpenChange={setIsGuideOpen}>
+        <MetaSetupGuide open={isGuideOpen} onOpenChange={setIsGuideOpen} />
+
+        {/* Legacy Meta guide retained temporarily; the interactive guide above replaces it. */}
+        <Dialog open={false} onOpenChange={() => undefined}>
           <DialogContent className="sm:max-w-2xl bg-background/95 backdrop-blur-3xl border border-border/50 max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-xl font-bold">
