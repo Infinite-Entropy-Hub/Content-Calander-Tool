@@ -53,6 +53,12 @@ export async function POST(request: Request) {
         for (const comment of values) {
           const mediaId = comment.media?.id || comment.media_id || comment.post_id;
           if (!comment.id || !mediaId) continue;
+          if (comment.parent_id) {
+            console.log("[meta-webhook] ignored comment reply", {
+              entryId: String(entry.id), commentId: String(comment.id), parentId: String(comment.parent_id),
+            });
+            continue;
+          }
           // Media IDs are globally unique. Match on the selected post rather than requiring
           // entry.id to equal the IG account ID, because Facebook Login webhook contexts vary.
           const { data: automations, error: automationsError } = await supabase.from("comment_automations").select("*")

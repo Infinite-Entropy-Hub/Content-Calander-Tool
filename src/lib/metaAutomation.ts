@@ -12,7 +12,8 @@ type Automation = {
 };
 
 type MetaComment = {
-  id: string; text?: string; username?: string; from?: { id?: string; username?: string };
+  id: string; text?: string; username?: string; parent_id?: string;
+  from?: { id?: string; username?: string; self_ig_scoped_id?: string };
   user_id?: string; media?: { id?: string }; media_id?: string; timestamp?: string;
 };
 
@@ -105,6 +106,19 @@ function metaError(error: unknown) {
 }
 
 export async function processComment(automation: Automation, comment: MetaComment) {
+  // A public reply creates another comments webhook. Never process replies or
+  // comments authored by the connected professional account, otherwise a reply
+  // containing the keyword can recursively trigger itself.
+  const authorId = comment.user_id || comment.from?.id || comment.from?.self_ig_scoped_id;
+  if (comment.parent_id || String(authorId || "") === String(automation.platform_account_id)) {
+    console.log("[meta-automation] ignored self/reply comment", {
+      automationId: automation.id,
+      commentId: comment.id,
+      parentId: comment.parent_id || null,
+      authorId: authorId || null,
+    });
+    return { matched: false, ignored: true };
+  }
   const text = comment.text || "";
   if (!matches(text, automation.keywords, automation.match_type)) return { matched: false };
 
