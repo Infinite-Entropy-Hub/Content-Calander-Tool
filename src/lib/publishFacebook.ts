@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { getMetaConnection } from "@/lib/metaCredentials";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,7 +28,7 @@ export async function publishToFacebook(postId: string, userId: string) {
 
   if (profileError || !profile) throw new Error("Profile not found");
 
-  const igToken = profile.api_keys?.instagram; // We reuse the same Meta token
+  const igToken = getMetaConnection(profile.api_keys, "facebook")?.token;
   if (!igToken) throw new Error("Meta/Facebook API Key not configured");
 
   // 3. Meta API: Get Facebook Pages and Page Access Token

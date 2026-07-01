@@ -7,15 +7,30 @@ To enable automated posting, you need to acquire developer credentials for each 
 2. Create an App (Type: Business).
 3. Add the **Instagram Graph API** and **Facebook Login for Business** products to your app.
 4. **App Settings > Basic:** Get your `App ID` and `App Secret`.
-5. **Permissions needed:** `instagram_basic`, `instagram_content_publish`, `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`.
+5. **Publishing permissions:** `instagram_basic`, `instagram_content_publish`, `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`.
+6. **Comment automation permissions:** `instagram_manage_comments`, `instagram_manage_messages`, `pages_manage_engagement`, `pages_manage_metadata`.
+7. Regenerate the System User token after adding permissions; old tokens do not inherit new scopes.
+8. In the Webhooks product, configure `https://YOUR-DOMAIN.com/api/webhooks/meta` and subscribe Instagram to `comments`, `messages`, and `messaging_postbacks`.
 6. Use the Graph API Explorer to generate a long-lived Page Access Token.
 
-**Environment Variables:**
+**Shared environment variables:**
 ```env
-META_CLIENT_ID="your-app-id"
-META_CLIENT_SECRET="your-app-secret"
-# Save user tokens in the Supabase platforms_config table
+META_WEBHOOK_VERIFY_TOKEN="a-long-random-value-you-create"
+META_GRAPH_API_VERSION="v23.0"
+CRON_SECRET="a-different-long-random-value"
+# Each user's Meta App ID, App Secret and token are saved from Profile → Platform Integrations.
 ```
+
+## Comment Automation Cron
+
+Create a second cron-job.org job. Keep the existing publishing cron unchanged.
+
+- URL: `https://YOUR-DOMAIN.com/api/cron/process-comment-automations`
+- Method: `GET`
+- Schedule: every 5 minutes
+- Header: `Authorization: Bearer YOUR_CRON_SECRET`
+
+Meta webhooks process new comments immediately. This cron scans existing comments selected by an automation and acts as a recovery path. Instagram permits one private reply per comment within 7 days; older matches receive only the public reply.
 
 ## 2. YouTube (Google Cloud Console)
 1. Go to the [Google Cloud Console](https://console.cloud.google.com/).

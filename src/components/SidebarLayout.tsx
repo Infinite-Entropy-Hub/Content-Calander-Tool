@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { LayoutDashboard, Settings, User as UserIcon, FolderOpen, PieChart, PanelLeftClose, Sparkles, StickyNote } from "lucide-react";
+import { LayoutDashboard, FolderOpen, PieChart, Sparkles, StickyNote, Zap } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -63,6 +63,11 @@ export function AppSidebar({ activeTab, setActiveTab }: { activeTab: string, set
       title: "Dashboard",
       id: "dashboard",
       icon: LayoutDashboard,
+    },
+    {
+      title: "Automations",
+      id: "automations",
+      icon: Zap,
     },
     {
       title: "Notes",

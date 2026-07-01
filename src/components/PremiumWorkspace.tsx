@@ -8,6 +8,7 @@ import { KanbanBoard } from "./KanbanBoard";
 import { MediaLibrary } from "./MediaLibrary";
 import { AnalyticsView } from "./AnalyticsView";
 import { NotesView } from "./NotesView";
+import { AutomationsView } from "./AutomationsView";
 import { Button } from "@/components/ui/button";
 import { Calendar, LayoutDashboard } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -72,6 +73,7 @@ export function PremiumWorkspace() {
           
           <div className="p-4 md:p-8 flex-1 relative z-10">
             {activeTab === "dashboard" && <DashboardView />}
+            {activeTab === "automations" && <AutomationsView />}
             {activeTab === "notes" && <NotesView />}
             {activeTab === "library" && <MediaLibrary />}
             {activeTab === "analytics" && <AnalyticsView />}

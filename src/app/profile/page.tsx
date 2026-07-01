@@ -103,11 +103,11 @@ export default function ProfilePage() {
     setIsSaving(true);
     try {
       const currentKeys = profile?.api_keys || {};
-      const valueToSave = ['instagram', 'facebook'].includes(selectedPlatform.id) 
-        ? apiKeysObj.token 
-        : apiKeysObj;
+      const valueToSave = apiKeysObj;
         
-      const newKeys = { ...currentKeys, [selectedPlatform.id]: valueToSave };
+      const newKeys = ['instagram', 'facebook'].includes(selectedPlatform.id)
+        ? { ...currentKeys, instagram: valueToSave, facebook: valueToSave }
+        : { ...currentKeys, [selectedPlatform.id]: valueToSave };
       
       await supabase.from("profiles").update({ api_keys: newKeys }).eq("id", user.id);
       setProfile({ ...profile, api_keys: newKeys });
@@ -372,16 +372,38 @@ export default function ProfilePage() {
             </DialogHeader>
             <div className="space-y-4 py-4">
               {['instagram', 'facebook'].includes(selectedPlatform?.id) && (
-                <div className="space-y-2">
-                  <Label>Access Token</Label>
-                  <Input 
-                    type="password" 
-                    placeholder="Paste your token here..." 
-                    value={apiKeysObj.token || ''}
-                    onChange={(e) => setApiKeysObj({...apiKeysObj, token: e.target.value})}
-                    className="bg-background/50 border-border/50"
-                  />
-                </div>
+                <>
+                  <div className="space-y-2">
+                    <Label>Meta App ID</Label>
+                    <Input
+                      placeholder="From Meta App Settings → Basic"
+                      value={apiKeysObj.appId || ''}
+                      onChange={(e) => setApiKeysObj({...apiKeysObj, appId: e.target.value})}
+                      className="bg-background/50 border-border/50"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Meta App Secret</Label>
+                    <Input
+                      type="password"
+                      placeholder="From Meta App Settings → Basic"
+                      value={apiKeysObj.appSecret || ''}
+                      onChange={(e) => setApiKeysObj({...apiKeysObj, appSecret: e.target.value})}
+                      className="bg-background/50 border-border/50"
+                    />
+                    <p className="text-xs text-muted-foreground">Used on the server to verify webhook events from this user&apos;s Meta app.</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>System User Access Token</Label>
+                    <Input 
+                      type="password" 
+                      placeholder="Paste your permanent token here..." 
+                      value={apiKeysObj.token || ''}
+                      onChange={(e) => setApiKeysObj({...apiKeysObj, token: e.target.value})}
+                      className="bg-background/50 border-border/50"
+                    />
+                  </div>
+                </>
               )}
               {selectedPlatform?.id === 'youtube' && (
                 <>
@@ -485,6 +507,7 @@ export default function ProfilePage() {
                   <li>Go to <a href="https://developers.facebook.com/" target="_blank" className="text-indigo-400 underline">developers.facebook.com</a> and click My Apps.</li>
                   <li>Click Create App. Select "Other" {">"} "Business". Select your Business Portfolio from the dropdown.</li>
                   <li>On the App Dashboard, scroll down and click "Set Up" for <b>Instagram Graph API</b> and <b>Facebook Login for Business</b>.</li>
+                  <li>Open <b>App Settings → Basic</b> and copy the App ID and App Secret. You will paste both into this Profile connection popup.</li>
                 </ol>
               </div>
 
@@ -515,7 +538,7 @@ export default function ProfilePage() {
                 <ol className="list-decimal pl-5 space-y-1">
                   <li>While still on the System User page, click <b>Generate Token</b>.</li>
                   <li>Select your new App from the dropdown.</li>
-                  <li>Check these 6 exact boxes: 
+                  <li>Check these permissions (the comment and messaging permissions are required for Automations): 
                     <div className="flex flex-wrap gap-1 mt-1 mb-1">
                       <code className="bg-muted px-1 rounded text-xs text-indigo-300">instagram_basic</code>
                       <code className="bg-muted px-1 rounded text-xs text-indigo-300">instagram_content_publish</code>
@@ -523,9 +546,24 @@ export default function ProfilePage() {
                       <code className="bg-muted px-1 rounded text-xs text-indigo-300">pages_read_engagement</code>
                       <code className="bg-muted px-1 rounded text-xs text-indigo-300">pages_manage_posts</code>
                       <code className="bg-muted px-1 rounded text-xs text-indigo-300">publish_video</code>
+                      <code className="bg-muted px-1 rounded text-xs text-emerald-300">instagram_manage_comments</code>
+                      <code className="bg-muted px-1 rounded text-xs text-emerald-300">instagram_manage_messages</code>
+                      <code className="bg-muted px-1 rounded text-xs text-emerald-300">pages_manage_engagement</code>
+                      <code className="bg-muted px-1 rounded text-xs text-emerald-300">pages_manage_metadata</code>
                     </div>
                   </li>
-                  <li>Generate the token, copy the giant string of text, and paste it into this dashboard! You are done!</li>
+                  <li>Generate a new token, copy it, and replace the existing Instagram token in this dashboard. Existing tokens do not gain newly selected permissions.</li>
+                </ol>
+              </div>
+
+              <div className="space-y-2">
+                <h4 className="font-bold text-blue-400">Step 5: Configure Meta Webhooks</h4>
+                <ol className="list-decimal pl-5 space-y-1">
+                  <li>In the Meta App Dashboard, add or open the <b>Webhooks</b> product and select <b>Instagram</b>.</li>
+                  <li>Set the callback URL to <code className="bg-muted px-1 rounded text-xs">https://YOUR-DOMAIN.com/api/webhooks/meta</code>.</li>
+                  <li>Use the exact same random value stored as <code className="bg-muted px-1 rounded text-xs">META_WEBHOOK_VERIFY_TOKEN</code> in your deployment.</li>
+                  <li>Subscribe to <code className="bg-muted px-1 rounded text-xs">comments</code>, <code className="bg-muted px-1 rounded text-xs">messages</code>, and <code className="bg-muted px-1 rounded text-xs">messaging_postbacks</code>.</li>
+                  <li>Return to this Profile page and save your <b>App ID</b>, <b>App Secret</b>, and newly generated token inside the Instagram connection popup. These remain user-specific.</li>
                 </ol>
               </div>
             </div>

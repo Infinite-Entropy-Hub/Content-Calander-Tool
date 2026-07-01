@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { getMetaConnection } from "@/lib/metaCredentials";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,7 +28,8 @@ export async function publishToInstagram(postId: string, userId: string) {
 
   if (profileError || !profile) throw new Error("Profile not found");
 
-  const igToken = profile.api_keys?.instagram;
+  const metaConnection = getMetaConnection(profile.api_keys, "instagram");
+  const igToken = metaConnection?.token;
   if (!igToken) throw new Error("Instagram API Key not configured");
 
   // 3. Meta API: Get Pages
