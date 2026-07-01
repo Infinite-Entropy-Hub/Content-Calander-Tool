@@ -1,7 +1,7 @@
 import { getServiceSupabase } from "@/lib/serverSupabase";
 import { getMetaConnection } from "@/lib/metaCredentials";
 
-export const META_API_VERSION = process.env.META_GRAPH_API_VERSION || "v23.0";
+export const META_API_VERSION = process.env.META_GRAPH_API_VERSION || "v25.0";
 
 type Automation = {
   id: string; user_id: string; platform: "instagram" | "facebook";

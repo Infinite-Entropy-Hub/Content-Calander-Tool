@@ -16,7 +16,7 @@ To enable automated posting, you need to acquire developer credentials for each 
 **Shared environment variables:**
 ```env
 META_WEBHOOK_VERIFY_TOKEN="a-long-random-value-you-create"
-META_GRAPH_API_VERSION="v23.0"
+META_GRAPH_API_VERSION="v25.0"
 CRON_SECRET="a-different-long-random-value"
 # Each user's Meta App ID, App Secret and token are saved from Profile → Platform Integrations.
 ```
