@@ -105,6 +105,17 @@ function metaError(error: unknown) {
   };
 }
 
+function parseMetaTimestamp(value?: string | number) {
+  if (value === undefined || value === null || value === "") return null;
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (Number.isFinite(numeric)) {
+    // Meta webhook timestamps may be Unix seconds; Date expects milliseconds.
+    return numeric < 10_000_000_000 ? numeric * 1000 : numeric;
+  }
+  const parsed = Date.parse(String(value));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 export async function processComment(automation: Automation, comment: MetaComment) {
   // A public reply creates another comments webhook. Never process replies or
   // comments authored by the connected professional account, otherwise a reply
@@ -177,8 +188,17 @@ export async function processComment(automation: Automation, comment: MetaCommen
     throw error;
   }
 
-  const commentAge = comment.timestamp ? Date.now() - new Date(comment.timestamp).getTime() : 0;
-  const privateReplyEligible = automation.platform === "instagram" && (!comment.timestamp || commentAge <= 7 * 24 * 60 * 60 * 1000);
+  const commentTimestamp = parseMetaTimestamp(comment.timestamp);
+  const commentAge = commentTimestamp === null ? 0 : Math.max(0, Date.now() - commentTimestamp);
+  const privateReplyEligible = automation.platform === "instagram" && commentAge <= 7 * 24 * 60 * 60 * 1000;
+  console.log("[meta-automation] private reply eligibility", {
+    automationId: automation.id,
+    commentId: comment.id,
+    rawTimestamp: comment.timestamp || null,
+    parsedTimestamp: commentTimestamp === null ? null : new Date(commentTimestamp).toISOString(),
+    commentAgeMs: commentAge,
+    eligible: privateReplyEligible,
+  });
   if (!privateReplyEligible) {
     await supabase.from("comment_automation_events").update({
       status: "partial_success", private_reply_status: "ineligible", final_status: "disabled",
