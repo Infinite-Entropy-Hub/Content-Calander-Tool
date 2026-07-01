@@ -33,16 +33,19 @@ export async function POST(request: Request) {
   try {
     const body = JSON.parse(rawBody);
     const supabase = getServiceSupabase();
-    const { data: profiles } = await supabase.from("profiles").select("api_keys");
+    const { data: profiles, error: profilesError } = await supabase.from("profiles").select("api_keys");
+    if (profilesError) throw profilesError;
     const secrets = (profiles || []).flatMap((profile) => {
       const instagram = readMetaConnection(profile.api_keys?.instagram)?.appSecret;
       const facebook = readMetaConnection(profile.api_keys?.facebook)?.appSecret;
       return [instagram, facebook].filter((value): value is string => Boolean(value));
     });
     if (!validSignature(rawBody, request.headers.get("x-hub-signature-256"), secrets)) {
+      console.error("[meta-webhook] rejected invalid signature");
       return new Response("Invalid signature", { status: 401 });
     }
 
+    console.log("[meta-webhook] verified delivery", { object: body.object, entries: body.entry?.length || 0 });
     for (const entry of body.entry || []) {
       for (const change of entry.changes || []) {
         if (!["comments", "live_comments", "feed"].includes(change.field)) continue;
@@ -50,8 +53,18 @@ export async function POST(request: Request) {
         for (const comment of values) {
           const mediaId = comment.media?.id || comment.media_id || comment.post_id;
           if (!comment.id || !mediaId) continue;
-          const { data: automations } = await supabase.from("comment_automations").select("*")
-            .eq("platform_account_id", String(entry.id)).eq("media_id", String(mediaId)).eq("is_enabled", true);
+          // Media IDs are globally unique. Match on the selected post rather than requiring
+          // entry.id to equal the IG account ID, because Facebook Login webhook contexts vary.
+          const { data: automations, error: automationsError } = await supabase.from("comment_automations").select("*")
+            .eq("media_id", String(mediaId)).eq("is_enabled", true);
+          if (automationsError) throw automationsError;
+          console.log("[meta-webhook] comment received", {
+            field: change.field,
+            entryId: String(entry.id),
+            mediaId: String(mediaId),
+            commentId: String(comment.id),
+            matchingAutomations: automations?.length || 0,
+          });
           for (const automation of automations || []) {
             await processComment(automation, comment).catch((error) => console.error("Comment automation failed", error));
           }

@@ -42,13 +42,23 @@ async function metaPost(host: string, path: string, token: string, body: unknown
   return data;
 }
 
-export async function getMetaToken(userId: string) {
+export async function getMetaToken(userId: string, instagramAccountId?: string) {
   const supabase = getServiceSupabase();
   const { data, error } = await supabase.from("profiles").select("api_keys").eq("id", userId).single();
   if (error) throw error;
   const connection = getMetaConnection(data?.api_keys);
   if (!connection) throw new Error("Meta access token is not connected");
-  return connection.token;
+  const pagesResponse = await fetch(
+    `https://graph.facebook.com/${META_API_VERSION}/me/accounts?fields=id,access_token,instagram_business_account&access_token=${encodeURIComponent(connection.token)}`,
+    { cache: "no-store" },
+  );
+  const pagesData = await pagesResponse.json();
+  if (!pagesResponse.ok) throw new Error(pagesData?.error?.message || "Unable to resolve Meta Page token");
+  const page = pagesData.data?.find((item: { instagram_business_account?: { id?: string } }) =>
+    !instagramAccountId || String(item.instagram_business_account?.id) === String(instagramAccountId),
+  ) || pagesData.data?.[0];
+  if (!page?.access_token) throw new Error("No Page access token found for the connected Instagram account");
+  return page.access_token as string;
 }
 
 export async function processComment(automation: Automation, comment: MetaComment) {
@@ -73,7 +83,7 @@ export async function processComment(automation: Automation, comment: MetaCommen
   if (!event) return { matched: true, duplicate: true };
 
   try {
-    const token = await getMetaToken(automation.user_id);
+    const token = await getMetaToken(automation.user_id, automation.platform_account_id);
     const values = { username, keyword };
     const host = automation.platform === "instagram" ? "graph.facebook.com" : "graph.facebook.com";
     const publicData = await metaPost(host, `${comment.id}/replies`, token, {
@@ -117,7 +127,7 @@ export async function deliverFinalLink(recipientId: string, accountId: string, r
   const automation = event.comment_automations as unknown as Automation;
   if (!automation || automation.platform_account_id !== accountId) return false;
   if (responseText.trim().toLocaleLowerCase() !== automation.confirmation_word.trim().toLocaleLowerCase()) return false;
-  const token = await getMetaToken(event.user_id);
+  const token = await getMetaToken(event.user_id, accountId);
   const result = await metaPost("graph.facebook.com", `${accountId}/messages`, token, {
     recipient: { id: recipientId }, messaging_type: "RESPONSE",
     message: {
